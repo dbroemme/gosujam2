@@ -1,0 +1,3 @@
+module RdiaGames
+
+end
