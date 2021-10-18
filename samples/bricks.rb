@@ -48,7 +48,7 @@ class BricksDisplay < Widget
         add_child(@player)
 
         @ball = Ball.new(442, 550)
-        @ball.start_move_in_direction(DEG_90)
+        @ball.start_move_in_direction(1.77)
         @ball.speed = 3
         add_child(@ball)
 
@@ -165,7 +165,19 @@ class BricksDisplay < Widget
     end 
 
     def diagonal_bounce(w)
-        # TODO
+        if @ball.direction > DEG_360 
+            raise "ERROR ball radians are above double pi #{@ball.direction}. Cannot adjust triangle accelerations"
+        end
+
+        axis = AXIS_VALUES[w.orientation]
+        if @ball.will_hit_axis(axis, @ball.direction)
+            @ball.direction = @ball.calculate_bounce(axis, @ball.direction)
+        else 
+            square_bounce(w)
+        end
+
+        #ball.last_element_bounce = @id
+        #@count_of_last_contact = update_count
     end 
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -251,7 +263,105 @@ class DiagonalWall < GameObject
     end
 
     def interaction_results
-        [RDIA_REACT_BOUNCE]
+        [RDIA_REACT_BOUNCE_DIAGONAL]
+    end
+
+    def comparison_corner_point(ball)
+        if @orientation == QUAD_SE
+            return ball.top_left
+        elsif @orientation == QUAD_SW
+            return ball.top_right
+        elsif @orientation == QUAD_NE
+            return ball.bottom_left
+        elsif @orientation == QUAD_NW
+            return ball.bottom_right
+        end
+        error("ERROR: Can't determine comparison corner point because of wall orientation #{@orientation}")
+    end
+
+    def inner_contains_ball(ball)
+        comparison_corner = comparison_corner_point(ball)
+        info("Inner compare with diagonal. Comparison point: #{comparison_corner}")
+
+        if contains_point(comparison_corner_point(ball))
+            return true 
+        end
+
+        # Based on the radians, check points on the border
+        if ball.direction < DEG_90
+            #puts "Triangle: The ball is generally travelling NE"
+            # check points top left and side right
+            start_x = ball.center_x 
+            while start_x < ball.right_edge
+                #puts "Checking x #{start_x}, #{ball.y}"
+                if contains_point(Point.new(start_x, ball.y))
+                    return true 
+                end
+                start_x = start_x + 1
+            end
+            start_y = ball.y 
+            while start_y < ball.center_y
+                #puts "Checking x #{ball.right_x}, #{start_y}"
+                if contains_point(Point.new(ball.right_edge, start_y))
+                    return true 
+                end
+                start_y = start_y + 1
+            end
+        elsif ball.direction < DEG_180
+            #puts "Triangle: The ball is generally travelling NW"
+            start_x = ball.x 
+            while start_x < ball.center_x
+                #puts "Checking x #{start_x}, #{ball.y}"
+                if contains_point(Point.new(start_x, ball.y))
+                    return true 
+                end
+                start_x = start_x + 1
+            end
+            start_y = ball.y 
+            while start_y < ball.center_y
+                #puts "Checking x #{ball.x}, #{start_y}"
+                if contains_point(Point.new(ball.x, start_y))
+                    return true 
+                end
+                start_y = start_y + 1
+            end
+        elsif ball.direction < DEG_270
+            #puts "Triangle: The ball is generally travelling SW"
+            start_y = ball.center_y 
+            while start_y < ball.bottom_edge
+                #puts "Checking x #{ball.x}, #{start_y}"
+                if contains_point(Point.new(ball.x, start_y))
+                    return true 
+                end
+                start_y = start_y + 1
+            end
+            start_x = ball.x 
+            while start_x < ball.center_x
+                #puts "Checking x #{start_x}, #{ball.bottom_y}"
+                if contains_point(Point.new(start_x, ball.bottom_y))
+                    return true 
+                end
+                start_x = start_x + 1
+            end
+        else 
+            #puts "Triangle: The ball is generally travelling SE"
+            start_x = ball.center_x 
+            while start_x < ball.right_x
+                #puts "Checking x #{start_x}, #{ball.bottom_y}"
+                if contains_point(Point.new(start_x, ball.bottom_y))
+                    return true 
+                end
+                start_x = start_x + 1
+            end
+            start_y = ball.center_y 
+            while start_y < ball.bottom_y
+                #puts "Checking x #{ball.right_x}, #{start_y}"
+                if contains_point(Point.new(ball.right_x, start_y))
+                    return true 
+                end
+                start_y = start_y + 1
+            end
+        end
     end
 end
 

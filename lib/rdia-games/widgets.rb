@@ -27,6 +27,42 @@ module RdiaGames
     X_DIM = 1
     Y_DIM = 2
 
+    AXIS_VALUES = {}
+    AXIS_VALUES[QUAD_NW] = DEG_45 
+    AXIS_VALUES[QUAD_SW] = DEG_135 
+    AXIS_VALUES[QUAD_SE] = DEG_225 
+    AXIS_VALUES[QUAD_NE] = DEG_315
+
+    class Point
+        attr_accessor :x
+        attr_accessor :y 
+    
+        def initialize(x, y) 
+            @x = x 
+            @y = y 
+        end
+    
+        def distance_x(other_point)
+            other_point.x - @x
+        end 
+
+        def distance_y(other_point)
+            other_point.y - @y
+        end 
+    
+        def abs_distance(other_point)
+            (other_point.x - @x).abs + (other_point.y - @y).abs
+        end 
+
+        def abs_distance_x(other_point)
+            (other_point.x - @x).abs
+        end 
+
+        def abs_distance_y(other_point)
+            (other_point.y - @y).abs
+        end 
+    end 
+    
     class GameObject < ImageWidget 
         attr_accessor :direction
         attr_accessor :speed
@@ -41,6 +77,30 @@ module RdiaGames
             @can_move = true  # Set to false if this is a wall or other immovable object
         end
 
+        def center_mass 
+            Point.new(center_x, center_y)
+        end
+
+        def top_left
+            Point.new(@x, @y)
+        end
+
+        def top_right
+            Point.new(right_edge, @y)
+        end
+
+        def bottom_left
+            Point.new(@x, bottom_edge)
+        end
+
+        def bottom_right
+            Point.new(right_edge, bottom_edge)
+        end
+
+        def contains_point(point)
+            point.x >= @x and point.x <= right_edge and point.y >= @y and point.y <= bottom_edge
+        end
+    
         def init_direction_and_speed 
             @direction = DEG_0
             @acceleration = 0
@@ -49,7 +109,7 @@ module RdiaGames
 
         def speed_up 
             if @acceleration < 8
-                @acceleration = @acceleration + 0.2
+                @acceleration = @acceleration + 0.4
             end
             info("speed = #{@speed} + #{@acceleration}")
             @speed = @speed + @acceleration
@@ -60,7 +120,7 @@ module RdiaGames
     
         def slow_down 
             if @acceleration > 0
-                @acceleration = @acceleration - 0.2
+                @acceleration = @acceleration - 0.4
             end
             @speed = @speed - @acceleration
             if @speed < 0
@@ -95,6 +155,10 @@ module RdiaGames
         def stop_move
             @acceleration = 0
             @speed = 0
+        end
+
+        def inner_contains_ball(ball)
+            true
         end
 
         def distance_between_center_mass(other_object)
@@ -358,7 +422,9 @@ module RdiaGames
                     # skip
                 else 
                     ids.add(w.object_id)
-                    deduped_widgets << w 
+                    if w.inner_contains_ball(ball)
+                        deduped_widgets << w 
+                    end
                 end 
             end
             #info("Deduped there are #{deduped_widgets.size} widgets")
