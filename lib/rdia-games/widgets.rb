@@ -47,7 +47,7 @@ module RdiaGames
 
         def speed_up 
             if @acceleration < 8
-                @acceleration = @acceleration + 0.4
+                @acceleration = @acceleration + 0.2
             end
             @speed = @speed + @acceleration
             if @speed > 12
@@ -57,7 +57,7 @@ module RdiaGames
     
         def slow_down 
             if @acceleration > 0
-                @acceleration = @acceleration - 0.4
+                @acceleration = @acceleration - 0.2
             end
             @speed = @speed - @acceleration
             if @speed < 0
@@ -85,57 +85,8 @@ module RdiaGames
             @speed = 0
         end
 
-        def move_right(grid)
-            speed_up
-            move(grid)
-        end
-
-        def move_left(grid)
-            speed_up
-            move(grid)
-        end
-
-        def move(grid)
-            return unless @can_move
-            return unless @speed > 0
-            last_x = @x
-            last_y = @y
-            # Speed is implemented by moving the specified number of times.
-            # Each time, we check if we interacted with another game object
-            if @speed < 1
-                @speed = 1
-            end
-            @speed.round.times do 
-                proposed_next_x = @x + Math.cos(@direction)
-                proposed_next_y = @y - Math.sin(@direction)
-                widgets_at_proposed_spot = proposed_widget_at(grid, proposed_next_x, proposed_next_y)
-                if widgets_at_proposed_spot.empty?
-                    @x = proposed_next_x
-                    @y = proposed_next_y
-                else 
-                    debug("Can't move there because widget(s) are there #{widgets_at_proposed_spot}")
-                    yield(widgets_at_proposed_spot) if block_given?
-                end
-            end
-        end
-
-        def proposed_widget_at(grid, proposed_next_x, proposed_next_y)
-            widgets = []
-            delta_x = proposed_next_x - @x
-            delta_y = proposed_next_y - @y
-
-            other_widget = grid.widget_at_absolute(@x + delta_x, @y + delta_y)  # Top left corner check
-            widgets << other_widget unless other_widget.nil?
-            other_widget = grid.widget_at_absolute(right_edge + delta_x, @y + delta_y) # Top right corner check
-            widgets << other_widget unless other_widget.nil?
-            other_widget = grid.widget_at_absolute(right_edge + delta_x, bottom_edge + delta_y) # Lower right corner check
-            widgets << other_widget unless other_widget.nil?
-            other_widget = grid.widget_at_absolute(@x + delta_x, bottom_edge + delta_y) # Lower left corner check
-            widgets << other_widget unless other_widget.nil?
-            other_widget = grid.widget_at_absolute(center_x + delta_x, center_y + delta_y) # Center check
-            widgets << other_widget unless other_widget.nil?
-            # todo we need to dedup the list
-            widgets
+        def proposed_move
+            [@x + Math.cos(@direction), @y - Math.sin(@direction)]
         end
 
         def stop_move
@@ -175,6 +126,29 @@ module RdiaGames
                 return Y_DIM 
             end  
             return X_DIM
+        end
+
+        def overlaps_with_proposed(proposed_x, proposed_y, other_widget)
+            # Darren
+            delta_x = proposed_x - @x
+            delta_y = proposed_y - @y
+
+            if other_widget.contains_click(@x + delta_x, @y + delta_y)
+                return true
+            end
+            if other_widget.contains_click(right_edge + delta_x, @y + delta_y)
+                return true
+            end
+            if other_widget.contains_click(right_edge + delta_x, bottom_edge - 1 + delta_y)
+                return true
+            end
+            if other_widget.contains_click(@x + delta_x, bottom_edge - 1 + delta_y)
+                return true
+            end
+            if other_widget.contains_click(center_x + delta_x, center_y + delta_y)
+                return true
+            end
+            return false
         end
 
         #
@@ -251,6 +225,27 @@ module RdiaGames
             end
         end
 
+        def move_right(grid)
+            speed_up
+            player_move(grid)
+        end
+
+        def move_left(grid)
+            speed_up
+            player_move(grid)
+        end
+
+        def player_move(grid)
+            @speed.round.times do
+                proposed_next_x, proposed_next_y = proposed_move
+                widgets_at_proposed_spot = grid.proposed_widget_at(self, proposed_next_x, proposed_next_y)
+                if widgets_at_proposed_spot.empty?
+                    set_absolute_position(proposed_next_x, proposed_next_y)
+                else 
+                    debug("Can't move any further because widget(s) are there #{widgets_at_proposed_spot}")
+                end
+            end
+        end
     end 
 
 
@@ -335,5 +330,25 @@ module RdiaGames
         def widget_at_relative(x, y)
             @tiles[x / @tile_size][y / @tile_size]
         end
+
+        def proposed_widget_at(ball, proposed_next_x, proposed_next_y)
+            widgets = []
+            delta_x = proposed_next_x - ball.x
+            delta_y = proposed_next_y - ball.y
+
+            other_widget = widget_at_absolute(ball.x + delta_x, ball.y + delta_y)  # Top left corner check
+            widgets << other_widget unless other_widget.nil?
+            other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.y + delta_y) # Top right corner check
+            widgets << other_widget unless other_widget.nil?
+            other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.bottom_edge + delta_y) # Lower right corner check
+            widgets << other_widget unless other_widget.nil?
+            other_widget = widget_at_absolute(ball.x + delta_x, ball.bottom_edge + delta_y) # Lower left corner check
+            widgets << other_widget unless other_widget.nil?
+            other_widget = widget_at_absolute(ball.center_x + delta_x, ball.center_y + delta_y) # Center check
+            widgets << other_widget unless other_widget.nil?
+            # todo we need to dedup the list
+            widgets
+        end
+
     end
 end

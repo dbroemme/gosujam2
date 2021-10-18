@@ -54,68 +54,103 @@ class BricksDisplay < Widget
     end 
 
     def handle_update update_count, mouse_x, mouse_y
-        @ball.move(@grid) do |widgets|
-            # Determine which widget we interacted with and what to do
-            if widgets.empty?
-                raise "Error occured, we should not have an empty widget list for interactions"
-            elsif widgets.size == 1
-                w = widgets[0]
+
+        return unless @ball.can_move
+        return unless @ball.speed > 0
+        # Speed is implemented by moving the specified number of times.
+        # Each time, we check if we interacted with another game object
+        speed_to_use = @ball.speed
+        if @ball.speed < 1
+            speed_to_use = 1
+        end
+        speed_to_use.round.times do 
+            proposed_next_x, proposed_next_y = @ball.proposed_move
+            widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
+            if widgets_at_proposed_spot.empty?
+                if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
+                    info("We hit the player!")
+                    bounce_off_player(proposed_next_x, proposed_next_y)
+                else
+                    @ball.set_absolute_position(proposed_next_x, proposed_next_y)
+                end
             else 
-                # Choose the widget with the shortest distance from the center of the ball
-                closest_widget = nil 
-                closest_distance = 100   # some large number
-                widgets.each do |candidate_widget| 
-                    d = @ball.distance_between_center_mass(candidate_widget)
-                    debug("Comparing #{d} with #{closest_distance}")
-                    if d < closest_distance
-                        closest_distance = d 
-                        closest_widget = candidate_widget 
-                    end 
+                debug("Can't move there because widget(s) are there #{widgets_at_proposed_spot}")
+                interact_with_widgets(widgets_at_proposed_spot)
+            end
+        end
+    end
+
+    def bounce_off_player(proposed_next_x, proposed_next_y)
+        in_radians = @ball.direction
+        cx = @ball.center_x 
+        scale_length = @player.width + @ball.width
+        impact_on_scale = ((@player.right_edge + (@ball.width / 2)) - cx) + 0.25
+        pct = impact_on_scale.to_f / scale_length.to_f
+        @ball.direction = (pct * Math::PI)
+        info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
+        info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
+        #display_bounce(update_count, "player", ball.speed, in_radians, 0, ball, self, impact_str) 
+        #ball.last_element_bounce = @id
+    end
+
+    def interact_with_widgets(widgets)
+        if widgets.size == 1
+            w = widgets[0]
+        else 
+            # Choose the widget with the shortest distance from the center of the ball
+            closest_widget = nil 
+            closest_distance = 100   # some large number
+            widgets.each do |candidate_widget| 
+                d = @ball.distance_between_center_mass(candidate_widget)
+                debug("Comparing #{d} with #{closest_distance}")
+                if d < closest_distance
+                    closest_distance = d 
+                    closest_widget = candidate_widget 
                 end 
-                w = closest_widget
-            end
-            puts "Interacting with widget #{w}. Reaction is #{w.interaction_result}"
-            if w.interaction_result.include? RDIA_REACT_STOP 
-                @ball.stop_move
-            end
-            if w.interaction_result.include? RDIA_REACT_BOUNCE 
-                if @ball.center_x >= w.x and @ball.center_x <= w.right_edge
-                    @ball.bounce_y
-                elsif @ball.center_y >= w.y and @ball.center_y <= w.bottom_edge
+            end 
+            w = closest_widget
+        end
+        puts "Interacting with widget #{w}. Reaction is #{w.interaction_results}"
+        if w.interaction_results.include? RDIA_REACT_STOP 
+            @ball.stop_move
+        end
+        if w.interaction_results.include? RDIA_REACT_BOUNCE 
+            if @ball.center_x >= w.x and @ball.center_x <= w.right_edge
+                @ball.bounce_y
+            elsif @ball.center_y >= w.y and @ball.center_y <= w.bottom_edge
+                @ball.bounce_x
+            else 
+                info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
+                quad = @ball.relative_quad(w)
+                info("Going to bounce off relative quad #{quad}")
+                gdd = nil
+                if quad == QUAD_NW 
+                    gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.y)        
+                elsif quad == QUAD_NE
+                    gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.y)
+                elsif quad == QUAD_SE
+                    gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.bottom_edge)
+                elsif quad == QUAD_SW
+                    gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.bottom_edge)
+                else 
+                    info("ERROR adjust for ball accel from quad #{quad}")
+                end
+
+                if gdd == X_DIM
                     @ball.bounce_x
                 else 
-                    info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
-                    quad = @ball.relative_quad(w)
-                    info("Going to bounce off relative quad #{quad}")
-                    gdd = nil
-                    if quad == QUAD_NW 
-                        gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.y)        
-                    elsif quad == QUAD_NE
-                        gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.y)
-                    elsif quad == QUAD_SE
-                        gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.bottom_edge)
-                    elsif quad == QUAD_SW
-                        gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.bottom_edge)
-                    else 
-                        info("ERROR adjust for ball accel from quad #{quad}")
-                    end
-
-                    if gdd == X_DIM
-                        @ball.bounce_x
-                    else 
-                        # Right now, if it is not defined, one of the diagonal quadrants
-                        # we are bouncing on the y dimension.
-                        # Not technically accurate, but probably good enough for now
-                        @ball.bounce_y
-                    end
+                    # Right now, if it is not defined, one of the diagonal quadrants
+                    # we are bouncing on the y dimension.
+                    # Not technically accurate, but probably good enough for now
+                    @ball.bounce_y
                 end
             end
-            if w.interaction_result.include? RDIA_REACT_CONSUME
-                @grid.remove_tile_at_absolute(w.x + 1, w.y + 1)
-            end
-            if w.interaction_result.include? RDIA_REACT_GOAL
-                # TODO end this round
-            end
+        end
+        if w.interaction_results.include? RDIA_REACT_CONSUME
+            @grid.remove_tile_at_absolute(w.x + 1, w.y + 1)
+        end
+        if w.interaction_results.include? RDIA_REACT_GOAL
+            # TODO end this round
         end
     end
 
@@ -198,7 +233,7 @@ class Brick < GameObject
         @can_move = false
     end
 
-    def interaction_result
+    def interaction_results
         [RDIA_REACT_BOUNCE, RDIA_REACT_CONSUME]
     end
 end
@@ -209,7 +244,7 @@ class Dot < GameObject
         @can_move = false
     end
 
-    def interaction_result
+    def interaction_results
         [RDIA_REACT_CONSUME]
     end
 end
