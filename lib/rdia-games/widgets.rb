@@ -1,6 +1,7 @@
 #require 'wads'
 require_relative '../../../ruby-wads/lib/wads'
 require 'securerandom'
+require 'set'
 
 include Wads 
 
@@ -8,6 +9,7 @@ module RdiaGames
 
     # Possible interactions when one object hits another
     RDIA_REACT_BOUNCE = "bounce"
+    RDIA_REACT_BOUNCE_DIAGONAL = "diagonal"
     RDIA_REACT_CONSUME = "consume"
     RDIA_REACT_GOAL = "goal"
     RDIA_REACT_STOP = "stop"
@@ -49,6 +51,7 @@ module RdiaGames
             if @acceleration < 8
                 @acceleration = @acceleration + 0.2
             end
+            info("speed = #{@speed} + #{@acceleration}")
             @speed = @speed + @acceleration
             if @speed > 12
                 @speed = 12
@@ -346,8 +349,20 @@ module RdiaGames
             widgets << other_widget unless other_widget.nil?
             other_widget = widget_at_absolute(ball.center_x + delta_x, ball.center_y + delta_y) # Center check
             widgets << other_widget unless other_widget.nil?
-            # todo we need to dedup the list
-            widgets
+            # TODO Make dedup more efficient
+            #info("Before Deduped there are #{widgets.size} widgets")
+            ids = Set.new
+            deduped_widgets = []
+            widgets.each do |w|
+                if ids.include? w.object_id 
+                    # skip
+                else 
+                    ids.add(w.object_id)
+                    deduped_widgets << w 
+                end 
+            end
+            #info("Deduped there are #{deduped_widgets.size} widgets")
+            deduped_widgets
         end
 
     end

@@ -37,6 +37,11 @@ class BricksDisplay < Widget
         @yellow_dot = @tileset[18]
         @green_dot = @tileset[19]
         @player_tile = @tileset[81]
+        @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
+        @red_wall_se = @diagonal_tileset[0]
+        @red_wall_sw = @diagonal_tileset[7]
+        @red_wall_nw = @diagonal_tileset[13]
+        @red_wall_ne = @diagonal_tileset[10]
 
         @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
         @player.set_absolute_position(400, 563)
@@ -54,11 +59,10 @@ class BricksDisplay < Widget
     end 
 
     def handle_update update_count, mouse_x, mouse_y
-
         return unless @ball.can_move
         return unless @ball.speed > 0
-        # Speed is implemented by moving the specified number of times.
-        # Each time, we check if we interacted with another game object
+        # Speed is implemented by moving multiple times.
+        # Each time, we check for interactions with other game objects
         speed_to_use = @ball.speed
         if @ball.speed < 1
             speed_to_use = 1
@@ -115,36 +119,9 @@ class BricksDisplay < Widget
             @ball.stop_move
         end
         if w.interaction_results.include? RDIA_REACT_BOUNCE 
-            if @ball.center_x >= w.x and @ball.center_x <= w.right_edge
-                @ball.bounce_y
-            elsif @ball.center_y >= w.y and @ball.center_y <= w.bottom_edge
-                @ball.bounce_x
-            else 
-                info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
-                quad = @ball.relative_quad(w)
-                info("Going to bounce off relative quad #{quad}")
-                gdd = nil
-                if quad == QUAD_NW 
-                    gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.y)        
-                elsif quad == QUAD_NE
-                    gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.y)
-                elsif quad == QUAD_SE
-                    gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.bottom_edge)
-                elsif quad == QUAD_SW
-                    gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.bottom_edge)
-                else 
-                    info("ERROR adjust for ball accel from quad #{quad}")
-                end
-
-                if gdd == X_DIM
-                    @ball.bounce_x
-                else 
-                    # Right now, if it is not defined, one of the diagonal quadrants
-                    # we are bouncing on the y dimension.
-                    # Not technically accurate, but probably good enough for now
-                    @ball.bounce_y
-                end
-            end
+            square_bounce(w)
+        elsif w.interaction_results.include? RDIA_REACT_BOUNCE_DIAGONAL
+            diagonal_bounce(w)
         end
         if w.interaction_results.include? RDIA_REACT_CONSUME
             @grid.remove_tile_at_absolute(w.x + 1, w.y + 1)
@@ -153,6 +130,43 @@ class BricksDisplay < Widget
             # TODO end this round
         end
     end
+
+    def square_bounce(w)
+        if @ball.center_x >= w.x and @ball.center_x <= w.right_edge
+            @ball.bounce_y
+        elsif @ball.center_y >= w.y and @ball.center_y <= w.bottom_edge
+            @ball.bounce_x
+        else 
+            info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
+            quad = @ball.relative_quad(w)
+            info("Going to bounce off relative quad #{quad}")
+            gdd = nil
+            if quad == QUAD_NW 
+                gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.y)        
+            elsif quad == QUAD_NE
+                gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.y)
+            elsif quad == QUAD_SE
+                gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.bottom_edge)
+            elsif quad == QUAD_SW
+                gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.bottom_edge)
+            else 
+                info("ERROR adjust for ball accel from quad #{quad}")
+            end
+
+            if gdd == X_DIM
+                @ball.bounce_x
+            else 
+                # Right now, if it is not defined, one of the diagonal quadrants
+                # we are bouncing on the y dimension.
+                # Not technically accurate, but probably good enough for now
+                @ball.bounce_y
+            end
+        end
+    end 
+
+    def diagonal_bounce(w)
+        # TODO
+    end 
 
     def handle_key_held_down id, mouse_x, mouse_y
         if id == Gosu::KbD 
@@ -167,6 +181,8 @@ class BricksDisplay < Widget
             @player.start_move_left 
         elsif id == Gosu::KbF
             @player.start_move_right 
+        elsif id == Gosu::KbS
+            @ball.speed_up
         end
     end
 
@@ -189,16 +205,16 @@ class BricksDisplay < Widget
                     img = Dot.new(@yellow_dot)
                 elsif char == "G"
                     img = Dot.new(@green_dot)
-                #elsif char == "T"
-                #    @elements << TriangleBrick.new(grid_x_to_pixel(grid_x), grid_y_to_pixel(grid_y), QUAD_NW)
-                #elsif char == "V"
-                #    @elements << TriangleBrick.new(grid_x_to_pixel(grid_x), grid_y_to_pixel(grid_y), QUAD_NE)
-                #elsif char == "X"
-                #    @elements << TriangleBrick.new(grid_x_to_pixel(grid_x), grid_y_to_pixel(grid_y), QUAD_SW)
-                #elsif char == "Z"
-                #    @elements << TriangleBrick.new(grid_x_to_pixel(grid_x), grid_y_to_pixel(grid_y), QUAD_SE)
                 #elsif char == "R"
-                #    @elements << RedDot.new(grid_x_to_pixel(grid_x), grid_y_to_pixel(grid_y))
+                #    img = Dot.new(@red_dot)
+                elsif char == "T"
+                    img = DiagonalWall.new(@red_wall_nw, QUAD_NW)
+                elsif char == "V"
+                    img = DiagonalWall.new(@red_wall_ne, QUAD_NE)
+                elsif char == "X"
+                    img = DiagonalWall.new(@red_wall_sw, QUAD_SW)
+                elsif char == "Z"
+                    img = DiagonalWall.new(@red_wall_se, QUAD_SE)
                 end
                 
                 if img.nil?
@@ -220,6 +236,18 @@ class Wall < GameObject
     def initialize(image)
         super(image)
         @can_move = false
+    end
+
+    def interaction_results
+        [RDIA_REACT_BOUNCE]
+    end
+end
+
+class DiagonalWall < GameObject
+    attr_accessor :orientation
+    def initialize(image, orientation)
+        super(image)
+        @orientation = orientation
     end
 
     def interaction_results
