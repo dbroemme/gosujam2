@@ -1,4 +1,5 @@
-require 'wads'
+#require 'wads'
+require_relative '../../../ruby-wads/lib/wads'
 require_relative 'widgets'
 
 include Wads
