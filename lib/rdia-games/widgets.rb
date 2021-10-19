@@ -2,6 +2,7 @@
 require_relative '../../../ruby-wads/lib/wads'
 require 'securerandom'
 require 'set'
+require 'highline'
 
 include Wads 
 
@@ -69,13 +70,57 @@ module RdiaGames
         attr_accessor :acceleration
         attr_accessor :can_move
         attr_accessor :object_id
+        attr_accessor :last_element_bounce
 
         def initialize(image, args = {})
             super(0, 0, image)
-            object_id = SecureRandom.uuid
+            @last_x = 0 
+            @last_y = 0
+            @object_id = SecureRandom.uuid[-6..-1]
             init_direction_and_speed
             @can_move = true  # Set to false if this is a wall or other immovable object
         end
+
+        def red(text)
+            HighLine::color(text, :red)
+        end
+        def blue(text)
+            HighLine::color(text, :blue)
+        end
+        def cyan(text)
+            HighLine::color(text, :cyan)
+        end
+        def magenta(text)
+            HighLine::color(text, :magenta)
+        end
+        def gray(text)
+            HighLine::color(text, :gray)
+        end
+        def yellow(text)
+            HighLine::color(text, :yellow)
+        end
+        def green(text)
+            HighLine::color(text, :green)
+        end
+
+        def log_debug(update_count, loop_count)
+            if @last_log_debug.nil?
+                @last_log_debug = Gosu.milliseconds 
+            else 
+                current_time = Gosu.milliseconds 
+                if (current_time - @last_log_debug) > 100
+                    puts gray "#{pad("Count", 8)}  #{pad("x",6)}, #{pad("y",6)} (#{pad("delx",4)}, #{pad("dely",4)}) #{pad("dir",5)}  #{pad("speed",5)}  #{pad("accel",5)}" 
+                    puts gray "#{pad("-----", 8)}  #{pad("------",6)}, #{pad("------",6)} (#{pad("----",4)}, #{pad("----",4)}) #{pad("---",5)}  #{pad("-----",5)}  #{pad("-----",5)}" 
+                    @last_log_debug = current_time 
+                end
+            end
+
+            delta_x = @x - @last_x
+            delta_y = @y - @last_y
+            puts "#{pad(update_count, 5)}.#{pad(loop_count,2,true)}  #{pad(@x,6)}, #{pad(@y,6)} (#{pad(delta_x,4)}, #{pad(delta_y,4)}) #{pad(@direction,5)}  #{pad(@speed,5)}  #{pad(@acceleration,5)}" 
+            @last_x = @x 
+            @last_y = @y 
+        end 
 
         def center_mass 
             Point.new(center_x, center_y)
@@ -221,7 +266,7 @@ module RdiaGames
         #
         # Radians bounce helpers
         #
-        def will_hit_axis(axis, radians) 
+        def will_hit_axis(axis) 
             begin_range = axis 
             end_range = axis - DEG_180
             if end_range < DEG_0
@@ -229,21 +274,27 @@ module RdiaGames
             end 
             #puts "Axis #{axis}  Begin/end  #{begin_range}/#{end_range}   #{radians}"
             if begin_range < end_range 
-                return (radians < begin_range or radians > end_range)
+                return (@direction < begin_range or @direction > end_range)
             end
-            radians < begin_range and radians > end_range
+            @direction < begin_range and @direction > end_range
         end 
         
         def bounce_x
-            @direction = calculate_bounce(DEG_270, @direction)
+            @direction = calculate_bounce(DEG_270)
         end
     
         def bounce_y
-            @direction = calculate_bounce(DEG_360, @direction)
+            @direction = calculate_bounce(DEG_360)
         end
 
-        def calculate_bounce(axis, radians)
-            truncate_bounce(reflect_bounce(axis, radians))
+        def bounce(axis)
+            puts "START bounce #{axis}. Direction #{@direction}"
+            @direction = calculate_bounce(axis)
+            puts "END bounce #{axis}. Direction #{@direction}"
+        end
+
+        def calculate_bounce(axis)
+            truncate_bounce(reflect_bounce(axis, @direction))
         end
         
         def truncate_bounce(radians)

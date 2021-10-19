@@ -26,6 +26,8 @@ class BricksDisplay < Widget
         set_layout(LAYOUT_HEADER_CONTENT)
         #set_theme(WadsDarkRedBrownTheme.new)
         disable_border
+
+
         add_panel(SECTION_NORTH).get_layout.add_text("Ruby Bricks",
                                                      { ARG_TEXT_ALIGN => TEXT_ALIGN_CENTER,
                                                        ARG_USE_LARGE_FONT => true})
@@ -49,6 +51,7 @@ class BricksDisplay < Widget
 
         @ball = Ball.new(442, 550)
         @ball.start_move_in_direction(1.77)
+        #@ball.start_move_in_direction(DEG_90)
         @ball.speed = 3
         add_child(@ball)
 
@@ -67,8 +70,10 @@ class BricksDisplay < Widget
         if @ball.speed < 1
             speed_to_use = 1
         end
+        loop_count = 0
         speed_to_use.round.times do 
             proposed_next_x, proposed_next_y = @ball.proposed_move
+            #puts("          #{pad(proposed_next_x,6)},#{pad(proposed_next_y,6)}")
             widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
             if widgets_at_proposed_spot.empty?
                 if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
@@ -78,9 +83,14 @@ class BricksDisplay < Widget
                     @ball.set_absolute_position(proposed_next_x, proposed_next_y)
                 end
             else 
-                debug("Can't move there because widget(s) are there #{widgets_at_proposed_spot}")
-                interact_with_widgets(widgets_at_proposed_spot)
+                info("Found candidate widgets to interact")
+                if not interact_with_widgets(widgets_at_proposed_spot)
+                    info("Decided not to use any of those, making the move")
+                    @ball.set_absolute_position(proposed_next_x, proposed_next_y) 
+                end
             end
+            @ball.log_debug(update_count, loop_count)
+            loop_count = loop_count + 1
         end
     end
 
@@ -93,28 +103,35 @@ class BricksDisplay < Widget
         @ball.direction = (pct * Math::PI)
         info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
         info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
-        #display_bounce(update_count, "player", ball.speed, in_radians, 0, ball, self, impact_str) 
-        #ball.last_element_bounce = @id
+        @ball.last_element_bounce = @player.object_id
     end
 
     def interact_with_widgets(widgets)
         if widgets.size == 1
             w = widgets[0]
+            if w.object_id == @ball.last_element_bounce
+                # Don't bounce off the same element twice
+                w = nil 
+            end
         else 
             # Choose the widget with the shortest distance from the center of the ball
             closest_widget = nil 
             closest_distance = 100   # some large number
             widgets.each do |candidate_widget| 
                 d = @ball.distance_between_center_mass(candidate_widget)
-                debug("Comparing #{d} with #{closest_distance}")
-                if d < closest_distance
+                debug("Comparing #{d} with #{closest_distance}. Candidate #{candidate_widget.object_id}  last bounce: #{@ball.last_element_bounce}")
+                if d < closest_distance and candidate_widget.object_id != @ball.last_element_bounce
                     closest_distance = d 
                     closest_widget = candidate_widget 
                 end 
             end 
             w = closest_widget
         end
-        puts "Interacting with widget #{w}. Reaction is #{w.interaction_results}"
+        if w.nil?
+            return false 
+        end
+        puts "Reaction #{w.interaction_results} with widget #{w}"
+        @ball.last_element_bounce = w.object_id
         if w.interaction_results.include? RDIA_REACT_STOP 
             @ball.stop_move
         end
@@ -129,6 +146,7 @@ class BricksDisplay < Widget
         if w.interaction_results.include? RDIA_REACT_GOAL
             # TODO end this round
         end
+        true
     end
 
     def square_bounce(w)
@@ -170,9 +188,11 @@ class BricksDisplay < Widget
         end
 
         axis = AXIS_VALUES[w.orientation]
-        if @ball.will_hit_axis(axis, @ball.direction)
-            @ball.direction = @ball.calculate_bounce(axis, @ball.direction)
+        if @ball.will_hit_axis(axis)
+            puts "Triangle bounce"
+            @ball.bounce(axis)
         else 
+            puts "Square bounce"
             square_bounce(w)
         end
 
@@ -281,9 +301,10 @@ class DiagonalWall < GameObject
 
     def inner_contains_ball(ball)
         comparison_corner = comparison_corner_point(ball)
-        info("Inner compare with diagonal. Comparison point: #{comparison_corner}")
+        debug("Inner compare with diagonal. Comparison point: #{comparison_corner}")
 
         if contains_point(comparison_corner_point(ball))
+            debug("Comparison corner contains point.")
             return true 
         end
 
@@ -338,7 +359,7 @@ class DiagonalWall < GameObject
             start_x = ball.x 
             while start_x < ball.center_x
                 #puts "Checking x #{start_x}, #{ball.bottom_y}"
-                if contains_point(Point.new(start_x, ball.bottom_y))
+                if contains_point(Point.new(start_x, ball.bottom_edge))
                     return true 
                 end
                 start_x = start_x + 1
@@ -346,17 +367,17 @@ class DiagonalWall < GameObject
         else 
             #puts "Triangle: The ball is generally travelling SE"
             start_x = ball.center_x 
-            while start_x < ball.right_x
+            while start_x < ball.right_edge
                 #puts "Checking x #{start_x}, #{ball.bottom_y}"
-                if contains_point(Point.new(start_x, ball.bottom_y))
+                if contains_point(Point.new(start_x, ball.bottom_edge))
                     return true 
                 end
                 start_x = start_x + 1
             end
             start_y = ball.center_y 
-            while start_y < ball.bottom_y
+            while start_y < ball.bottom_edge
                 #puts "Checking x #{ball.right_x}, #{start_y}"
-                if contains_point(Point.new(ball.right_x, start_y))
+                if contains_point(Point.new(ball.right_edge, start_y))
                     return true 
                 end
                 start_y = start_y + 1
@@ -386,5 +407,27 @@ class Dot < GameObject
         [RDIA_REACT_CONSUME]
     end
 end
+
+# TODO Add a bricks resources section or module for this stuff
+
+class BricksTheme < GuiTheme
+    def initialize
+        super(COLOR_WHITE,                # text color
+              COLOR_HEADER_BRIGHT_BLUE,   # graphic elements
+              COLOR_BORDER_BLUE,          # border color
+              COLOR_BLACK,                # background
+              COLOR_LIGHT_GRAY,           # selected item
+              true,                       # use icons
+              Gosu::Font.new(22, {:name => media_path("armalite_rifle.ttf")}),  # regular font
+              Gosu::Font.new(38, {:name => media_path("armalite_rifle.ttf")}))  # large font
+    end
+
+    def media_path(file)
+        File.join(File.dirname(File.dirname(__FILE__)), 'media', file)
+    end
+end
+
+WadsConfig.instance.set_current_theme(BricksTheme.new)
+
 
 BricksGame.new.show
