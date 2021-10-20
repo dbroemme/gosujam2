@@ -51,7 +51,6 @@ class BricksDisplay < Widget
         add_overlay(create_overlay_widget)
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
-        puts "Number of tiles: #{@tileset.size}"
         @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
         @red_wall = @tileset[7]
         @yellow_dot = @tileset[18]
@@ -65,7 +64,7 @@ class BricksDisplay < Widget
         @red_wall_ne = @diagonal_tileset[10]
 
         @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
-        @player.set_absolute_position(400, 579)
+        @player.set_absolute_position(400, 627)    # 579 is height we started with
         add_child(@player)
 
         @ball = Ball.new(442, 550)
@@ -74,7 +73,7 @@ class BricksDisplay < Widget
         @ball.speed = 3
         add_child(@ball)
 
-        @grid = GridDisplay.new(0, 100, 16, 50, 31)
+        @grid = GridDisplay.new(0, 100, 16, 50, 38)
         #@grid.disable_border
         instantiate_elements(File.readlines("./data/board.txt"))
         add_child(@grid)
@@ -156,6 +155,10 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_LOSE 
             @pause = true
+            @game_mode = RDIA_MODE_END
+            if @overlay_widget.nil?
+                add_overlay(create_you_lose_widget)
+            end
         end
         if w.interaction_results.include? RDIA_REACT_BOUNCE 
             square_bounce(w)
@@ -171,6 +174,13 @@ class BricksDisplay < Widget
         if w.interaction_results.include? RDIA_REACT_SCORE
             @score = @score + w.score
             @score_text.label = "#{@score}"
+        end
+        if w.interaction_results.include? RDIA_REACT_GOAL
+            @pause = true
+            @game_mode = RDIA_MODE_END
+            if @overlay_widget.nil?
+                add_overlay(create_you_win_widget)
+            end
         end
         true
     end
@@ -221,9 +231,6 @@ class BricksDisplay < Widget
             puts "Square bounce"
             square_bounce(w)
         end
-
-        #ball.last_element_bounce = @id
-        #@count_of_last_contact = update_count
     end 
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -248,8 +255,14 @@ class BricksDisplay < Widget
 
     def intercept_widget_event(result)
         info("We intercepted the event #{result.inspect}")
+        info("The overlay widget is #{@overlay_widget}")
         if result.close_widget 
-            @pause = false 
+            if @game_mode == RDIA_MODE_START
+                @game_mode = RDIA_MODE_PLAY
+                @pause = false 
+            elsif @game_mode == RDIA_MODE_END
+                @game_mode = RDIA_MODE_START
+            end
         end
         result
     end
@@ -275,6 +288,8 @@ class BricksDisplay < Widget
                     img = Dot.new(@green_dot)
                 #elsif char == "R"
                 #    img = Dot.new(@red_dot)
+                elsif char == "F"
+                    img = OutOfBounds.new(@fire_transition_tile)
                 elsif char == "T"
                     img = DiagonalWall.new(@red_wall_nw, QUAD_NW)
                 elsif char == "V"
@@ -463,7 +478,27 @@ class OutOfBounds < GameObject
     end
 end
 
-# TODO Add a bricks resources section or module for this stuff
+class BackgroundArea < GameObject
+    def initialize(image)
+        super(image)
+        @can_move = false
+    end
+
+    def interaction_results
+        []
+    end
+end
+
+class GoalArea < GameObject
+    def initialize(image)
+        super(image)
+        @can_move = false
+    end
+
+    def interaction_results
+        [RDIA_REACT_GOAL, RDIA_REACT_STOP]
+    end
+end
 
 class BricksTheme < GuiTheme
     def initialize
@@ -495,6 +530,26 @@ def overlay_content
     HEREDOC
 end
 
+def create_you_lose_widget
+    InfoBox.new(100, 60, 600, 400, "Sorry, you lost", you_lose_content, { ARG_THEME => BricksTheme.new})
+end
+
+def you_lose_content
+    <<~HEREDOC
+    Try not to let the ball fall through next time.
+    HEREDOC
+end
+
+def create_you_win_widget
+    InfoBox.new(100, 60, 600, 400, "You win!", you_win_content, { ARG_THEME => WadsDarkRedBrownTheme.new})
+end
+
+def you_win_content
+    <<~HEREDOC
+    You did it. That was amazing!
+    Nice work.
+    HEREDOC
+end
 WadsConfig.instance.set_current_theme(BricksTheme.new)
 
 
