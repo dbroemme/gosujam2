@@ -26,11 +26,29 @@ class BricksDisplay < Widget
         set_layout(LAYOUT_HEADER_CONTENT)
         #set_theme(WadsDarkRedBrownTheme.new)
         disable_border
+        @pause = true
+        @game_mode = RDIA_MODE_START
+        @score = 0
+        @level = 1
 
 
-        add_panel(SECTION_NORTH).get_layout.add_text("Ruby Bricks",
-                                                     { ARG_TEXT_ALIGN => TEXT_ALIGN_CENTER,
-                                                       ARG_USE_LARGE_FONT => true})
+        header_panel = add_panel(SECTION_NORTH)
+        header_panel.get_layout.add_text("Ruby Bricks",
+                                         { ARG_TEXT_ALIGN => TEXT_ALIGN_CENTER,
+                                           ARG_USE_LARGE_FONT => true})
+        subheader_panel = header_panel.get_layout.add_vertical_panel({ARG_LAYOUT => LAYOUT_EAST_WEST,
+                                                                      ARG_DESIRED_WIDTH => GAME_WIDTH})
+        subheader_panel.disable_border
+        west_panel = subheader_panel.add_panel(SECTION_WEST)
+        west_panel.get_layout.add_text("Score")
+        @score_text = west_panel.get_layout.add_text("#{@score}")
+        
+        east_panel = subheader_panel.add_panel(SECTION_EAST)
+        east_panel.get_layout.add_text("Level", {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
+        @level_text = east_panel.get_layout.add_text("#{@level}",
+                                                     {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
+        
+        add_overlay(create_overlay_widget)
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
         puts "Number of tiles: #{@tileset.size}"
@@ -39,6 +57,7 @@ class BricksDisplay < Widget
         @yellow_dot = @tileset[18]
         @green_dot = @tileset[19]
         @player_tile = @tileset[81]
+        @fire_transition_tile = @tileset[66]
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
         @red_wall_sw = @diagonal_tileset[7]
@@ -46,12 +65,12 @@ class BricksDisplay < Widget
         @red_wall_ne = @diagonal_tileset[10]
 
         @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
-        @player.set_absolute_position(400, 563)
+        @player.set_absolute_position(400, 579)
         add_child(@player)
 
         @ball = Ball.new(442, 550)
-        @ball.start_move_in_direction(1.77)
-        #@ball.start_move_in_direction(DEG_90)
+        #@ball.start_move_in_direction(1.77)
+        @ball.start_move_in_direction(DEG_90 - 0.1)
         @ball.speed = 3
         add_child(@ball)
 
@@ -64,6 +83,7 @@ class BricksDisplay < Widget
     def handle_update update_count, mouse_x, mouse_y
         return unless @ball.can_move
         return unless @ball.speed > 0
+        return if @pause
         # Speed is implemented by moving multiple times.
         # Each time, we check for interactions with other game objects
         speed_to_use = @ball.speed
@@ -83,13 +103,12 @@ class BricksDisplay < Widget
                     @ball.set_absolute_position(proposed_next_x, proposed_next_y)
                 end
             else 
-                info("Found candidate widgets to interact")
-                if not interact_with_widgets(widgets_at_proposed_spot)
-                    info("Decided not to use any of those, making the move")
+                #info("Found candidate widgets to interact")
+                if interact_with_widgets(widgets_at_proposed_spot)
                     @ball.set_absolute_position(proposed_next_x, proposed_next_y) 
                 end
             end
-            @ball.log_debug(update_count, loop_count)
+            #@ball.log_debug(update_count, loop_count)
             loop_count = loop_count + 1
         end
     end
@@ -128,12 +147,15 @@ class BricksDisplay < Widget
             w = closest_widget
         end
         if w.nil?
-            return false 
+            return true
         end
         puts "Reaction #{w.interaction_results} with widget #{w}"
         @ball.last_element_bounce = w.object_id
         if w.interaction_results.include? RDIA_REACT_STOP 
             @ball.stop_move
+        end
+        if w.interaction_results.include? RDIA_REACT_LOSE 
+            @pause = true
         end
         if w.interaction_results.include? RDIA_REACT_BOUNCE 
             square_bounce(w)
@@ -145,6 +167,10 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_GOAL
             # TODO end this round
+        end
+        if w.interaction_results.include? RDIA_REACT_SCORE
+            @score = @score + w.score
+            @score_text.label = "#{@score}"
         end
         true
     end
@@ -215,7 +241,17 @@ class BricksDisplay < Widget
             @player.start_move_right 
         elsif id == Gosu::KbS
             @ball.speed_up
+        elsif id == Gosu::KbQ or id == Gosu::KbW
+            @pause = !@pause
         end
+    end
+
+    def intercept_widget_event(result)
+        info("We intercepted the event #{result.inspect}")
+        if result.close_widget 
+            @pause = false 
+        end
+        result
     end
 
     # Takes an array of strings that represents the board
@@ -393,7 +429,11 @@ class Brick < GameObject
     end
 
     def interaction_results
-        [RDIA_REACT_BOUNCE, RDIA_REACT_CONSUME]
+        [RDIA_REACT_BOUNCE, RDIA_REACT_CONSUME, RDIA_REACT_SCORE]
+    end
+
+    def score 
+        10 
     end
 end
 
@@ -404,7 +444,22 @@ class Dot < GameObject
     end
 
     def interaction_results
-        [RDIA_REACT_CONSUME]
+        [RDIA_REACT_CONSUME, RDIA_REACT_SCORE]
+    end
+
+    def score 
+        50 
+    end
+end
+
+class OutOfBounds < GameObject
+    def initialize(image)
+        super(image)
+        @can_move = false
+    end
+
+    def interaction_results
+        [RDIA_REACT_LOSE, RDIA_REACT_STOP]
     end
 end
 
@@ -425,6 +480,19 @@ class BricksTheme < GuiTheme
     def media_path(file)
         File.join(File.dirname(File.dirname(__FILE__)), 'media', file)
     end
+end
+
+
+def create_overlay_widget
+    InfoBox.new(100, 60, 600, 400, "Welcome to Ruby Bricks", overlay_content, { ARG_THEME => BricksTheme.new})
+end
+
+def overlay_content
+    <<~HEREDOC
+    Your goal is to clear all of the bricks and dots
+    without letting the ball drop through to the bottom.
+    Hit the 'W' button to get started.
+    HEREDOC
 end
 
 WadsConfig.instance.set_current_theme(BricksTheme.new)

@@ -5,6 +5,11 @@ require_relative 'widgets'
 include Wads
 
 module RdiaGames
+
+    RDIA_MODE_START = "start"
+    RDIA_MODE_PLAY = "play"
+    RDIA_MODE_END = "end"
+
     #
     # The WadsApp class provides a simple starting point to quickly build a native
     # Ruby application using Gosu as an underlying library. It provides all the necessary

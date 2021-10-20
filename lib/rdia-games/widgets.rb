@@ -14,6 +14,8 @@ module RdiaGames
     RDIA_REACT_CONSUME = "consume"
     RDIA_REACT_GOAL = "goal"
     RDIA_REACT_STOP = "stop"
+    RDIA_REACT_SCORE = "score"
+    RDIA_REACT_LOSE = "lose"
 
     QUAD_NW = 1
     QUAD_N = 2
@@ -156,7 +158,7 @@ module RdiaGames
             if @acceleration < 8
                 @acceleration = @acceleration + 0.4
             end
-            info("speed = #{@speed} + #{@acceleration}")
+            #info("speed = #{@speed} + #{@acceleration}")
             @speed = @speed + @acceleration
             if @speed > 12
                 @speed = 12
@@ -446,7 +448,17 @@ module RdiaGames
         # Returns nil if there is no widget at the given pixel position
         # or if it this pixel is occupied, return the widget at that position
         def widget_at_relative(x, y)
-            @tiles[x / @tile_size][y / @tile_size]
+            x_index = x / @tile_size
+            y_index = y / @tile_size
+            if x_index > @grid_width
+                error("Asking for relative widget beyond width: #{x}")
+                return nil 
+            end
+            if y_index > @grid_height
+                error("Asking for relative widget beyond height: #{y}")
+                return nil 
+            end
+            @tiles[x_index][y_index]
         end
 
         def proposed_widget_at(ball, proposed_next_x, proposed_next_y)
