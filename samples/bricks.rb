@@ -1,6 +1,5 @@
 require 'gosu'
-#require 'wads'
-require_relative '../../ruby-wads/lib/wads'
+require 'wads'
 #require 'rdia-games'
 require_relative '../lib/rdia-games'
 

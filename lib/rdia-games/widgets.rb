@@ -1,5 +1,4 @@
-#require 'wads'
-require_relative '../../../ruby-wads/lib/wads'
+require 'wads'
 require 'securerandom'
 require 'set'
 require 'highline'

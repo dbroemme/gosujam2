@@ -28,7 +28,8 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "wads", "~> 0.2.1"
+  spec.add_dependency "gosu", ">= 1.1.1.1"
+  spec.add_dependency "wads", "~> 0.2.3"
   spec.add_dependency "highline", "~> 2.0.3"
 
   # For more information and examples about making a new gem, checkout our
