@@ -29,7 +29,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "gosu", ">= 1.1.1.1"
-  spec.add_dependency "wads", "~> 0.2.3"
+  spec.add_dependency "wads", "~> 0.2.4"
   spec.add_dependency "highline", "~> 2.0.3"
 
   # For more information and examples about making a new gem, checkout our

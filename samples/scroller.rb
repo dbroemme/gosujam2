@@ -11,11 +11,18 @@ GAME_HEIGHT = 700
 GAME_START_X = 10
 GAME_START_Y = 10
 
+DIRECTION_TOWARDS = 0
+DIRECTION_LEFT = 1
+DIRECTION_AWAY = 2
+DIRECTION_RIGHT = 3
+
 class ScrollerGame < RdiaGame
     def initialize
         super(GAME_WIDTH, GAME_HEIGHT, "Test Scroller", ScrollerDisplay.new)
-        register_hold_down_key(Gosu::KbD)    # Move left
-        register_hold_down_key(Gosu::KbF)    # Move right
+        register_hold_down_key(Gosu::KbA)    # Move left
+        register_hold_down_key(Gosu::KbD)    # Move right
+        register_hold_down_key(Gosu::KbW)    # Move left
+        register_hold_down_key(Gosu::KbS)    # Move left
     end 
 end
 
@@ -62,53 +69,42 @@ class ScrollerDisplay < Widget
         @red_wall_nw = @diagonal_tileset[13]
         @red_wall_ne = @diagonal_tileset[10]
 
-        @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
-        @player.set_absolute_position(400, 627)    # 579 is height we started with
+        @player = Character.new
+        @player.set_absolute_position(400, 427)
         add_child(@player)
 
-        @ball = Ball.new(442, 550)
-        #@ball.start_move_in_direction(1.77)
-        @ball.start_move_in_direction(DEG_90 - 0.1)
-        @ball.speed = 3
-        add_child(@ball)
-
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
-        #@grid.disable_border
-        instantiate_elements(File.readlines("./data/board.txt"))
+        instantiate_elements(File.readlines("./data/scroller_board.txt"))
         add_child(@grid)
     end 
 
     def handle_update update_count, mouse_x, mouse_y
-        return unless @ball.can_move
-        return unless @ball.speed > 0
-        return if @pause
-        # Speed is implemented by moving multiple times.
-        # Each time, we check for interactions with other game objects
-        speed_to_use = @ball.speed
-        if @ball.speed < 1
+
+        speed_to_use = @player.speed
+        if @player.speed < 1
             speed_to_use = 1
         end
-        loop_count = 0
-        speed_to_use.round.times do 
-            proposed_next_x, proposed_next_y = @ball.proposed_move
+        #loop_count = 0
+        #speed_to_use.round.times do 
+        #    proposed_next_x, proposed_next_y = @player.proposed_move
             #puts("          #{pad(proposed_next_x,6)},#{pad(proposed_next_y,6)}")
-            widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
-            if widgets_at_proposed_spot.empty?
-                if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
-                    info("We hit the player!")
-                    bounce_off_player(proposed_next_x, proposed_next_y)
-                else
-                    @ball.set_absolute_position(proposed_next_x, proposed_next_y)
-                end
-            else 
+        #    widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
+        #    if widgets_at_proposed_spot.empty?
+        #        if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
+        #            info("We hit the player!")
+        #            bounce_off_player(proposed_next_x, proposed_next_y)
+        #        else
+        #            @ball.set_absolute_position(proposed_next_x, proposed_next_y)
+        #        end
+        #    else 
                 #info("Found candidate widgets to interact")
-                if interact_with_widgets(widgets_at_proposed_spot)
-                    @ball.set_absolute_position(proposed_next_x, proposed_next_y) 
-                end
-            end
+        #        if interact_with_widgets(widgets_at_proposed_spot)
+        #            @ball.set_absolute_position(proposed_next_x, proposed_next_y) 
+        #        end
+        #    end
             #@ball.log_debug(update_count, loop_count)
-            loop_count = loop_count + 1
-        end
+        #    loop_count = loop_count + 1
+        #end
     end
 
     def bounce_off_player(proposed_next_x, proposed_next_y)
@@ -184,71 +180,37 @@ class ScrollerDisplay < Widget
         true
     end
 
-    def square_bounce(w)
-        if @ball.center_x >= w.x and @ball.center_x <= w.right_edge
-            @ball.bounce_y
-        elsif @ball.center_y >= w.y and @ball.center_y <= w.bottom_edge
-            @ball.bounce_x
-        else 
-            info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
-            quad = @ball.relative_quad(w)
-            info("Going to bounce off relative quad #{quad}")
-            gdd = nil
-            if quad == QUAD_NW 
-                gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.y)        
-            elsif quad == QUAD_NE
-                gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.y)
-            elsif quad == QUAD_SE
-                gdd = @ball.x_or_y_dimension_greater_distance(w.right_edge, w.bottom_edge)
-            elsif quad == QUAD_SW
-                gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.bottom_edge)
-            else 
-                info("ERROR adjust for ball accel from quad #{quad}")
-            end
-
-            if gdd == X_DIM
-                @ball.bounce_x
-            else 
-                # Right now, if it is not defined, one of the diagonal quadrants
-                # we are bouncing on the y dimension.
-                # Not technically accurate, but probably good enough for now
-                @ball.bounce_y
-            end
-        end
-    end 
-
-    def diagonal_bounce(w)
-        if @ball.direction > DEG_360 
-            raise "ERROR ball radians are above double pi #{@ball.direction}. Cannot adjust triangle accelerations"
-        end
-
-        axis = AXIS_VALUES[w.orientation]
-        if @ball.will_hit_axis(axis)
-            puts "Triangle bounce"
-            @ball.bounce(axis)
-        else 
-            puts "Square bounce"
-            square_bounce(w)
-        end
-    end 
-
     def handle_key_held_down id, mouse_x, mouse_y
-        if id == Gosu::KbD 
+        if id == Gosu::KbA
             @player.move_left(@grid)
-        elsif id == Gosu::KbF
+        elsif id == Gosu::KbD
             @player.move_right(@grid)
+        elsif id == Gosu::KbW
+            @player.move_up(@grid)
+        elsif id == Gosu::KbS
+            @player.move_down(@grid)
         end
     end
 
     def handle_key_press id, mouse_x, mouse_y
-        if id == Gosu::KbD 
+        if id == Gosu::KbA
             @player.start_move_left 
-        elsif id == Gosu::KbF
+        elsif id == Gosu::KbD
             @player.start_move_right 
+        elsif id == Gosu::KbW
+            @player.start_move_up 
         elsif id == Gosu::KbS
-            @ball.speed_up
-        elsif id == Gosu::KbQ or id == Gosu::KbW
-            @pause = !@pause
+            @player.start_move_down
+        #elsif id == Gosu::KbSpace
+        #    @player.speed_up
+        #elsif id == Gosu::KbQ or id == Gosu::KbW
+        #    @pause = !@pause
+        end
+    end
+
+    def handle_key_up id, mouse_x, mouse_y
+        if id == Gosu::KbA or id == Gosu::KbD or id == Gosu::KbW or id == Gosu::KbS
+            @player.stop_move
         end
     end
 
@@ -274,14 +236,15 @@ class ScrollerDisplay < Widget
         dsl.each do |line|
             index = 0
             while index < line.size
-                char = line[index]
-                #puts "#{grid_x},#{grid_y}  =  #{char}"
+                char = line[index..index+1].strip
+                puts "[#{index}  #{grid_x},#{grid_y} = #{char}."
                 img = nil
 
-                # TODO check if char is a number. If so, use it as an index
+                # If the token is a number, use it as the tile index
                 if char.match?(/[[:digit:]]/)
-                    index = char.to_i
-                    img = BackgroundArea.new(@tileset[index])
+                    tile_index = char.to_i
+                    puts "Using index #{tile_index}."
+                    img = BackgroundArea.new(@tileset[tile_index])
                 elsif char == "B"
                     img = Brick.new(@blue_brick)
                 elsif char == "W"
@@ -290,18 +253,8 @@ class ScrollerDisplay < Widget
                     img = Dot.new(@yellow_dot)
                 elsif char == "G"
                     img = Dot.new(@green_dot)
-                #elsif char == "R"
-                #    img = Dot.new(@red_dot)
                 elsif char == "F"
                     img = OutOfBounds.new(@fire_transition_tile)
-                elsif char == "T"
-                    img = DiagonalWall.new(@red_wall_nw, QUAD_NW)
-                elsif char == "V"
-                    img = DiagonalWall.new(@red_wall_ne, QUAD_NE)
-                elsif char == "X"
-                    img = DiagonalWall.new(@red_wall_sw, QUAD_SW)
-                elsif char == "Z"
-                    img = DiagonalWall.new(@red_wall_se, QUAD_SE)
                 end
                 
                 if img.nil?
@@ -311,13 +264,111 @@ class ScrollerDisplay < Widget
                 end
 
                 grid_x = grid_x + 1
-                index = index + 1
+                index = index + 2
             end
             grid_x = 0
             grid_y = grid_y + 1
         end
     end 
 end
+
+class Character < GameObject 
+
+    def initialize(args = {})
+        @animation_count = 1
+        @direction = DIRECTION_TOWARDS
+        @character_tileset = Gosu::Image.load_tiles("media/characters.png", 16, 16, tileable: true)
+        @img_towards = [@character_tileset[3], @character_tileset[4], @character_tileset[5]]
+        @img_left = [@character_tileset[15], @character_tileset[16], @character_tileset[17]]
+        @img_right = [@character_tileset[27], @character_tileset[28], @character_tileset[29]]
+        @img_away = [@character_tileset[39], @character_tileset[40], @character_tileset[41]]
+        @img_array = @img_towards
+        super(@img_array[@animation_count])
+        disable_border
+        @scale = 2     # might need this until we can scale the whole game to 2
+        @max_speed = 5
+    end
+
+    def handle_update update_count, mouse_x, mouse_y
+        if @speed < 0.01
+            @img = @img_array[1]
+        elsif update_count % 10 == 0    # if we do this every count, you can't even see it
+            puts "Speed #{@speed}"
+            @animation_count = @animation_count + 1
+            if @animation_count > 2
+                @animation_count = 0
+            end
+            @img = @img_array[@animation_count]
+        end
+    end 
+
+    def stop_move 
+        @speed = 0
+    end 
+
+    def start_move_right
+        @img_array = @img_right
+        start_move_in_direction(DEG_0)
+        @acceleration = 0
+        @speed = 1
+    end
+
+    def start_move_left
+        @img_array = @img_left
+        start_move_in_direction(DEG_180)
+        @acceleration = 0
+        @speed = 1
+    end 
+
+    def start_move_up
+        @img_array = @img_away
+        start_move_in_direction(DEG_90)
+        @acceleration = 0
+        @speed = 1
+    end
+
+    def start_move_down
+        @img_array = @img_towards
+        start_move_in_direction(DEG_270)
+        @acceleration = 0
+        @speed = 1
+    end
+
+    def internal_move(grid) 
+        if @speed < @max_speed
+            speed_up
+        end
+        player_move(grid)
+    end 
+
+    def move_right(grid)
+        internal_move(grid) 
+    end
+
+    def move_left(grid)
+        internal_move(grid)
+    end
+
+    def move_up(grid)
+        internal_move(grid) 
+    end
+
+    def move_down(grid)
+        internal_move(grid) 
+    end
+
+    def player_move(grid)
+        @speed.round.times do
+            proposed_next_x, proposed_next_y = proposed_move
+            widgets_at_proposed_spot = grid.proposed_widget_at(self, proposed_next_x, proposed_next_y)
+            if widgets_at_proposed_spot.empty?
+                set_absolute_position(proposed_next_x, proposed_next_y)
+            else 
+                debug("Can't move any further because widget(s) are there #{widgets_at_proposed_spot}")
+            end
+        end
+    end
+end 
 
 class Wall < GameObject
     def initialize(image)
@@ -330,116 +381,6 @@ class Wall < GameObject
     end
 end
 
-class DiagonalWall < GameObject
-    attr_accessor :orientation
-    def initialize(image, orientation)
-        super(image)
-        @orientation = orientation
-    end
-
-    def interaction_results
-        [RDIA_REACT_BOUNCE_DIAGONAL]
-    end
-
-    def comparison_corner_point(ball)
-        if @orientation == QUAD_SE
-            return ball.top_left
-        elsif @orientation == QUAD_SW
-            return ball.top_right
-        elsif @orientation == QUAD_NE
-            return ball.bottom_left
-        elsif @orientation == QUAD_NW
-            return ball.bottom_right
-        end
-        error("ERROR: Can't determine comparison corner point because of wall orientation #{@orientation}")
-    end
-
-    def inner_contains_ball(ball)
-        comparison_corner = comparison_corner_point(ball)
-        debug("Inner compare with diagonal. Comparison point: #{comparison_corner}")
-
-        if contains_point(comparison_corner_point(ball))
-            debug("Comparison corner contains point.")
-            return true 
-        end
-
-        # Based on the radians, check points on the border
-        if ball.direction < DEG_90
-            #puts "Triangle: The ball is generally travelling NE"
-            # check points top left and side right
-            start_x = ball.center_x 
-            while start_x < ball.right_edge
-                #puts "Checking x #{start_x}, #{ball.y}"
-                if contains_point(Point.new(start_x, ball.y))
-                    return true 
-                end
-                start_x = start_x + 1
-            end
-            start_y = ball.y 
-            while start_y < ball.center_y
-                #puts "Checking x #{ball.right_x}, #{start_y}"
-                if contains_point(Point.new(ball.right_edge, start_y))
-                    return true 
-                end
-                start_y = start_y + 1
-            end
-        elsif ball.direction < DEG_180
-            #puts "Triangle: The ball is generally travelling NW"
-            start_x = ball.x 
-            while start_x < ball.center_x
-                #puts "Checking x #{start_x}, #{ball.y}"
-                if contains_point(Point.new(start_x, ball.y))
-                    return true 
-                end
-                start_x = start_x + 1
-            end
-            start_y = ball.y 
-            while start_y < ball.center_y
-                #puts "Checking x #{ball.x}, #{start_y}"
-                if contains_point(Point.new(ball.x, start_y))
-                    return true 
-                end
-                start_y = start_y + 1
-            end
-        elsif ball.direction < DEG_270
-            #puts "Triangle: The ball is generally travelling SW"
-            start_y = ball.center_y 
-            while start_y < ball.bottom_edge
-                #puts "Checking x #{ball.x}, #{start_y}"
-                if contains_point(Point.new(ball.x, start_y))
-                    return true 
-                end
-                start_y = start_y + 1
-            end
-            start_x = ball.x 
-            while start_x < ball.center_x
-                #puts "Checking x #{start_x}, #{ball.bottom_y}"
-                if contains_point(Point.new(start_x, ball.bottom_edge))
-                    return true 
-                end
-                start_x = start_x + 1
-            end
-        else 
-            #puts "Triangle: The ball is generally travelling SE"
-            start_x = ball.center_x 
-            while start_x < ball.right_edge
-                #puts "Checking x #{start_x}, #{ball.bottom_y}"
-                if contains_point(Point.new(start_x, ball.bottom_edge))
-                    return true 
-                end
-                start_x = start_x + 1
-            end
-            start_y = ball.center_y 
-            while start_y < ball.bottom_edge
-                #puts "Checking x #{ball.right_x}, #{start_y}"
-                if contains_point(Point.new(ball.right_edge, start_y))
-                    return true 
-                end
-                start_y = start_y + 1
-            end
-        end
-    end
-end
 
 class Brick < GameObject
     def initialize(image)
@@ -488,10 +429,6 @@ class BackgroundArea < GameObject
         @can_move = false
     end
 
-    def interaction_results
-        []
-    end
-
     def widget_z
         Z_ORDER_SELECTION_BACKGROUND
     end
@@ -501,10 +438,6 @@ class ForegroundArea < GameObject
     def initialize(image)
         super(image)
         @can_move = false
-    end
-
-    def interaction_results
-        []
     end
 
     def widget_z

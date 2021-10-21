@@ -82,6 +82,14 @@ module RdiaGames
             @can_move = true  # Set to false if this is a wall or other immovable object
         end
 
+        def interaction_results
+            []
+        end
+
+        def no_interactions
+            interaction_results.empty?
+        end
+
         def red(text)
             HighLine::color(text, :red)
         end
@@ -151,6 +159,10 @@ module RdiaGames
             @direction = DEG_0
             @acceleration = 0
             @speed = 0
+        end
+
+        def is_stopped 
+            @speed < 0.001
         end
 
         def speed_up 
@@ -466,15 +478,25 @@ module RdiaGames
             delta_y = proposed_next_y - ball.y
 
             other_widget = widget_at_absolute(ball.x + delta_x, ball.y + delta_y)  # Top left corner check
-            widgets << other_widget unless other_widget.nil?
+            if not other_widget.nil?
+                widgets << other_widget unless other_widget.no_interactions
+            end
             other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.y + delta_y) # Top right corner check
-            widgets << other_widget unless other_widget.nil?
+            if not other_widget.nil?
+                widgets << other_widget unless other_widget.no_interactions
+            end
             other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.bottom_edge + delta_y) # Lower right corner check
-            widgets << other_widget unless other_widget.nil?
+            if not other_widget.nil?
+                widgets << other_widget unless other_widget.no_interactions
+            end
             other_widget = widget_at_absolute(ball.x + delta_x, ball.bottom_edge + delta_y) # Lower left corner check
-            widgets << other_widget unless other_widget.nil?
+            if not other_widget.nil?
+                widgets << other_widget unless other_widget.no_interactions
+            end
             other_widget = widget_at_absolute(ball.center_x + delta_x, ball.center_y + delta_y) # Center check
-            widgets << other_widget unless other_widget.nil?
+            if not other_widget.nil?
+                widgets << other_widget unless other_widget.no_interactions
+            end
             # TODO Make dedup more efficient
             #info("Before Deduped there are #{widgets.size} widgets")
             ids = Set.new
