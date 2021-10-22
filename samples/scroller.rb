@@ -36,7 +36,8 @@ class ScrollerDisplay < Widget
         @game_mode = RDIA_MODE_START
         @score = 0
         @level = 1
-
+        @camera_x = 0
+        @camera_y = 0
 
         header_panel = add_panel(SECTION_NORTH)
         header_panel.get_layout.add_text("Test Scroller",
@@ -61,7 +62,6 @@ class ScrollerDisplay < Widget
         @red_wall = @tileset[7]
         @yellow_dot = @tileset[18]
         @green_dot = @tileset[19]
-        @player_tile = @tileset[81]
         @fire_transition_tile = @tileset[66]
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
@@ -70,53 +70,39 @@ class ScrollerDisplay < Widget
         @red_wall_ne = @diagonal_tileset[10]
 
         @player = Character.new
-        @player.set_absolute_position(400, 427)
+        @player.set_absolute_position(400, 150)
         add_child(@player)
 
-        @grid = GridDisplay.new(0, 100, 16, 50, 38)
+        @grid = GridDisplay.new(0, 0, 16, 50, 38, {ARG_SCALE => 2})
         instantiate_elements(File.readlines("./data/scroller_board.txt"))
         add_child(@grid)
     end 
 
-    def handle_update update_count, mouse_x, mouse_y
-
-        speed_to_use = @player.speed
-        if @player.speed < 1
-            speed_to_use = 1
+    def draw 
+        if @show_border
+            draw_border
         end
-        #loop_count = 0
-        #speed_to_use.round.times do 
-        #    proposed_next_x, proposed_next_y = @player.proposed_move
-            #puts("          #{pad(proposed_next_x,6)},#{pad(proposed_next_y,6)}")
-        #    widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
-        #    if widgets_at_proposed_spot.empty?
-        #        if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
-        #            info("We hit the player!")
-        #            bounce_off_player(proposed_next_x, proposed_next_y)
-        #        else
-        #            @ball.set_absolute_position(proposed_next_x, proposed_next_y)
-        #        end
-        #    else 
-                #info("Found candidate widgets to interact")
-        #        if interact_with_widgets(widgets_at_proposed_spot)
-        #            @ball.set_absolute_position(proposed_next_x, proposed_next_y) 
-        #        end
-        #    end
-            #@ball.log_debug(update_count, loop_count)
-        #    loop_count = loop_count + 1
-        #end
-    end
+        @children.each do |child|
+            if child.is_a? GridDisplay or child.is_a? Character
+                # skip
+            else
+                child.draw
+            end
+        end
 
-    def bounce_off_player(proposed_next_x, proposed_next_y)
-        in_radians = @ball.direction
-        cx = @ball.center_x 
-        scale_length = @player.width + @ball.width
-        impact_on_scale = ((@player.right_edge + (@ball.width / 2)) - cx) + 0.25
-        pct = impact_on_scale.to_f / scale_length.to_f
-        @ball.direction = (pct * Math::PI)
-        info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
-        info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
-        @ball.last_element_bounce = @player.object_id
+        Gosu.translate(-@camera_x, -@camera_y) do
+            @grid.draw
+            @player.draw
+        end
+    end 
+
+    def handle_update update_count, mouse_x, mouse_y
+        # Scrolling follows player
+        # @camera_x = [[@cptn.x - WIDTH / 2, 0].max, @map.width * 50 - WIDTH].min
+        # @camera_y = [[@cptn.y - HEIGHT / 2, 0].max, @map.height * 50 - HEIGHT].min 
+        @camera_x = [[@player.x - (GAME_WIDTH.to_f / 2), 0].max, @grid.grid_width * 32 - GAME_WIDTH].min
+        @camera_y = [[@player.y - (GAME_HEIGHT.to_f / 2), 0].max, @grid.grid_height * 32 - GAME_HEIGHT].min
+        #puts "#{@player.x}, #{@player.y}    Camera: #{@camera_x}, #{@camera_y}"
     end
 
     def interact_with_widgets(widgets)
@@ -190,6 +176,7 @@ class ScrollerDisplay < Widget
         elsif id == Gosu::KbS
             @player.move_down(@grid)
         end
+        #puts "#{@player.x}, #{@player.y}    Camera: #{@camera_x}, #{@camera_y}   Tile: #{@grid.tile_at_absolute(@player.x, @player.y)}"
     end
 
     def handle_key_press id, mouse_x, mouse_y
@@ -201,10 +188,6 @@ class ScrollerDisplay < Widget
             @player.start_move_up 
         elsif id == Gosu::KbS
             @player.start_move_down
-        #elsif id == Gosu::KbSpace
-        #    @player.speed_up
-        #elsif id == Gosu::KbQ or id == Gosu::KbW
-        #    @pause = !@pause
         end
     end
 
@@ -245,10 +228,10 @@ class ScrollerDisplay < Widget
                     tile_index = char.to_i
                     puts "Using index #{tile_index}."
                     img = BackgroundArea.new(@tileset[tile_index])
-                elsif char == "B"
-                    img = Brick.new(@blue_brick)
+                #elsif char == "B"
+                #    img = Brick.new(@blue_brick)
                 elsif char == "W"
-                    img = Wall.new(@red_wall)
+                    img = Wall.new(@blue_brick)
                 elsif char == "Y"
                     img = Dot.new(@yellow_dot)
                 elsif char == "G"
@@ -293,7 +276,6 @@ class Character < GameObject
         if @speed < 0.01
             @img = @img_array[1]
         elsif update_count % 10 == 0    # if we do this every count, you can't even see it
-            puts "Speed #{@speed}"
             @animation_count = @animation_count + 1
             if @animation_count > 2
                 @animation_count = 0
@@ -380,7 +362,6 @@ class Wall < GameObject
         [RDIA_REACT_BOUNCE]
     end
 end
-
 
 class Brick < GameObject
     def initialize(image)

@@ -385,10 +385,14 @@ module RdiaGames
         attr_accessor :grid_width 
         attr_accessor :grid_height 
         attr_accessor :tiles
+        attr_accessor :scale
 
-        # TODO Add visible area for scrolling purposes
         def initialize(x, y, tile_size, grid_width, grid_height, args = {})
-            @tile_size = tile_size
+            @scale = 1
+            if args[ARG_SCALE]
+                @scale = args[ARG_SCALE]
+            end
+            @tile_size = tile_size * @scale
             @grid_width = grid_width 
             @grid_height = grid_height
             width = @tile_size * @grid_width 
@@ -398,7 +402,6 @@ module RdiaGames
                 @gui_theme = args[ARG_THEME]
             end
             clear_tiles
-            #puts "Populated tiles: #{@map}"
         end
 
         def clear_tiles
@@ -424,6 +427,7 @@ module RdiaGames
             end
             widget.x = relative_x(grid_to_relative_pixel(tile_x))
             widget.y = relative_y(grid_to_relative_pixel(tile_y))
+            widget.scale = @scale
             @tiles[tile_x][tile_y] = widget 
         end
 
@@ -470,6 +474,12 @@ module RdiaGames
                 return nil 
             end
             @tiles[x_index][y_index]
+        end
+
+        def tile_at_absolute(x, y)
+            x_index = x / @tile_size
+            y_index = y / @tile_size
+            [x_index.round, y_index.round, x_index.round * @tile_size, y_index.round * @tile_size]
         end
 
         def proposed_widget_at(ball, proposed_next_x, proposed_next_y)
