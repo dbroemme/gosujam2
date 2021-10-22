@@ -35,6 +35,38 @@ module RdiaGames
     AXIS_VALUES[QUAD_SE] = DEG_225 
     AXIS_VALUES[QUAD_NE] = DEG_315
 
+    class ProgressBar < Widget
+        attr_accessor :percent_full
+
+        def initialize(x, y, w, h, args = {})
+            super(x, y, w, h)
+            @percent_full = 1
+        end
+
+        def render 
+            x_width = (@width.to_f * @percent_full).round - 1
+            if x_width < 0
+                x_width = 0
+            end
+            Gosu::draw_rect(@x, @y, x_width, @height - 1, graphics_color, relative_z_order(Z_ORDER_GRAPHIC_ELEMENTS))
+        end
+
+        def decrease_percent_full(amount = 0.05)
+            if amount > 1
+                amount = amount / 100
+            end
+            @percent_full = @percent_full - amount
+            if @percent_full <= 0
+                return true 
+            end 
+            false
+        end
+
+        def reset 
+            @percent_full = 1
+        end
+    end
+
     class Point
         attr_accessor :x
         attr_accessor :y 
@@ -72,6 +104,7 @@ module RdiaGames
         attr_accessor :can_move
         attr_accessor :object_id
         attr_accessor :last_element_bounce
+        attr_accessor :max_speed
 
         def initialize(image, args = {})
             super(0, 0, image)
@@ -80,6 +113,7 @@ module RdiaGames
             @object_id = SecureRandom.uuid[-6..-1]
             init_direction_and_speed
             @can_move = true  # Set to false if this is a wall or other immovable object
+            @max_speed = 20
         end
 
         def interaction_results
@@ -169,10 +203,9 @@ module RdiaGames
             if @acceleration < 8
                 @acceleration = @acceleration + 0.4
             end
-            #info("speed = #{@speed} + #{@acceleration}")
             @speed = @speed + @acceleration
-            if @speed > 12
-                @speed = 12
+            if @speed > @max_speed
+                @speed = @max_speed
             end
         end 
     

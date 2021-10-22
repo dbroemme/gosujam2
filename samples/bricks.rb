@@ -31,7 +31,10 @@ class BricksDisplay < Widget
         @game_mode = RDIA_MODE_START
         @score = 0
         @level = 1
-
+        @mode_start_count = 0
+        @timer_start_count = 0
+        @counter_delay = 60
+        @fire_level = 36
 
         header_panel = add_panel(SECTION_NORTH)
         header_panel.get_layout.add_text("Ruby Bricks",
@@ -41,14 +44,17 @@ class BricksDisplay < Widget
                                                                       ARG_DESIRED_WIDTH => GAME_WIDTH})
         subheader_panel.disable_border
         west_panel = subheader_panel.add_panel(SECTION_WEST)
-        west_panel.get_layout.add_text("Score")
-        @score_text = west_panel.get_layout.add_text("#{@score}")
+        west_panel.get_layout.add_text("  Score")
+        @score_text = west_panel.get_layout.add_text("  #{@score}")
         
         east_panel = subheader_panel.add_panel(SECTION_EAST)
-        east_panel.get_layout.add_text("Level", {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
-        @level_text = east_panel.get_layout.add_text("#{@level}",
+        east_panel.get_layout.add_text("Level  ", {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
+        @level_text = east_panel.get_layout.add_text("#{@level}  ",
                                                      {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
         
+        @progress_bar = ProgressBar.new(200, 60, 400, 20)
+        add_child(@progress_bar)
+
         add_overlay(create_overlay_widget)
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
@@ -65,24 +71,39 @@ class BricksDisplay < Widget
         @red_wall_ne = @diagonal_tileset[10]
 
         @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
-        @player.set_absolute_position(400, 627)    # 579 is height we started with
+        @player.set_absolute_position(400, 627)
         add_child(@player)
 
         @ball = Ball.new(750, 550)
-        @ball.start_move_in_direction(DEG_90 - 0.1)
-        #@ball.speed = 3
+        @ball.start_move_in_direction(DEG_90 - 0.2)
         add_child(@ball)
 
         @aim_radians = DEG_90 - 0.01
         @aim_speed = 8
 
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
-        #@grid.disable_border
         instantiate_elements(File.readlines("./data/board.txt"))
         add_child(@grid)
     end 
 
     def handle_update update_count, mouse_x, mouse_y
+        if @mode_start_count < 0
+            @mode_start_count = update_count 
+            @timer_start_count = update_count 
+        end 
+        if update_count - @timer_start_count > @counter_delay
+            if @progress_bar.decrease_percent_full 
+                @fire_level = @fire_level - 1
+                (1..43).each do |n|
+                info("Setting tile #{n}, #{@fire_level} to fire tile")
+                    @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
+                end
+                @player.y = @player.y - 16
+                @progress_bar.reset
+            end
+            @timer_start_count = update_count
+        end
+
         return unless @ball.can_move
         return unless @ball.speed > 0
         return if @pause
@@ -95,7 +116,6 @@ class BricksDisplay < Widget
         loop_count = 0
         speed_to_use.round.times do 
             proposed_next_x, proposed_next_y = @ball.proposed_move
-            #puts("          #{pad(proposed_next_x,6)},#{pad(proposed_next_y,6)}")
             widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
             if widgets_at_proposed_spot.empty?
                 if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
@@ -151,7 +171,7 @@ class BricksDisplay < Widget
         if w.nil?
             return true
         end
-        puts "Reaction #{w.interaction_results} with widget #{w}"
+        #puts "Reaction #{w.interaction_results} with widget #{w}"
         @ball.last_element_bounce = w.object_id
         if w.interaction_results.include? RDIA_REACT_STOP 
             @ball.stop_move
@@ -176,7 +196,7 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_SCORE
             @score = @score + w.score
-            @score_text.label = "#{@score}"
+            @score_text.label = "  #{@score}"
         end
         if w.interaction_results.include? RDIA_REACT_GOAL
             @pause = true
@@ -237,7 +257,6 @@ class BricksDisplay < Widget
     end 
 
     def render
-        #puts "in render with stopped #{@ball.is_stopped} #{@ball.speed} mode #{@game_mode}"
         if @ball.is_stopped and @game_mode == RDIA_MODE_PREPARE 
             # Draw the aim directional element
             aim_size = 6
@@ -310,6 +329,7 @@ class BricksDisplay < Widget
                 @ball.speed = @aim_speed 
                 @pause = false 
                 @game_mode = RDIA_MODE_PLAY
+                @mode_start_count = -1
             end
         end
     end
@@ -346,8 +366,6 @@ class BricksDisplay < Widget
                     img = Dot.new(@yellow_dot)
                 elsif char == "G"
                     img = Dot.new(@green_dot)
-                #elsif char == "R"
-                #    img = Dot.new(@red_dot)
                 elsif char == "F"
                     img = OutOfBounds.new(@fire_transition_tile)
                 elsif char == "T"
@@ -564,7 +582,7 @@ class BricksTheme < GuiTheme
     def initialize
         super(COLOR_WHITE,                # text color
               COLOR_HEADER_BRIGHT_BLUE,   # graphic elements
-              COLOR_BORDER_BLUE,          # border color
+              COLOR_VERY_LIGHT_BLUE,      # border color
               COLOR_BLACK,                # background
               COLOR_LIGHT_GRAY,           # selected item
               true,                       # use icons
