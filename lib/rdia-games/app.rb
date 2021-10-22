@@ -11,6 +11,7 @@ module RdiaGames
     RDIA_MODE_END = "end"
 
     ARG_SCALE = "scale"
+    ARG_DELAY = "delay"
 
     #
     # The WadsApp class provides a simple starting point to quickly build a native

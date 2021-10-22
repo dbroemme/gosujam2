@@ -32,8 +32,6 @@ class BricksDisplay < Widget
         @score = 0
         @level = 1
         @mode_start_count = 0
-        @timer_start_count = 0
-        @counter_delay = 60
         @fire_level = 36
 
         header_panel = add_panel(SECTION_NORTH)
@@ -52,7 +50,7 @@ class BricksDisplay < Widget
         @level_text = east_panel.get_layout.add_text("#{@level}  ",
                                                      {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
         
-        @progress_bar = ProgressBar.new(200, 60, 400, 20)
+        @progress_bar = ProgressBar.new(200, 60, 400, 20, {ARG_DELAY => 30})
         add_child(@progress_bar)
 
         add_overlay(create_overlay_widget)
@@ -78,8 +76,8 @@ class BricksDisplay < Widget
         @ball.start_move_in_direction(DEG_90 - 0.2)
         add_child(@ball)
 
-        @aim_radians = DEG_90 - 0.01
-        @aim_speed = 8
+        @aim_radians = DEG_90 - 0.02
+        @aim_speed = 6
 
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
         instantiate_elements(File.readlines("./data/board.txt"))
@@ -89,19 +87,16 @@ class BricksDisplay < Widget
     def handle_update update_count, mouse_x, mouse_y
         if @mode_start_count < 0
             @mode_start_count = update_count 
-            @timer_start_count = update_count 
         end 
-        if update_count - @timer_start_count > @counter_delay
-            if @progress_bar.decrease_percent_full 
-                @fire_level = @fire_level - 1
-                (1..43).each do |n|
-                info("Setting tile #{n}, #{@fire_level} to fire tile")
-                    @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
-                end
-                @player.y = @player.y - 16
-                @progress_bar.reset
+        if @progress_bar.is_done
+            @fire_level = @fire_level - 1
+            (1..43).each do |n|
+            info("Setting tile #{n}, #{@fire_level} to fire tile")
+                @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
             end
-            @timer_start_count = update_count
+            @player.y = @player.y - 16
+            @progress_bar.reset
+            @progress_bar.start
         end
 
         return unless @ball.can_move
@@ -330,6 +325,7 @@ class BricksDisplay < Widget
                 @pause = false 
                 @game_mode = RDIA_MODE_PLAY
                 @mode_start_count = -1
+                @progress_bar.start
             end
         end
     end

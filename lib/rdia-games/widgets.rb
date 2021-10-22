@@ -37,11 +37,31 @@ module RdiaGames
 
     class ProgressBar < Widget
         attr_accessor :percent_full
+        attr_accessor :counter_delay
 
         def initialize(x, y, w, h, args = {})
             super(x, y, w, h)
             @percent_full = 1
+            @timer_start_count = nil
+            @pause = true
+            if args[ARG_DELAY]
+                @counter_delay = args[ARG_DELAY]
+            else
+                @counter_delay = 360
+            end
         end
+
+        def start
+            @pause = false 
+        end 
+
+        def stop 
+            @pause = true 
+        end 
+
+        def is_done 
+            @percent_full <= 0
+        end 
 
         def render 
             x_width = (@width.to_f * @percent_full).round - 1
@@ -51,15 +71,32 @@ module RdiaGames
             Gosu::draw_rect(@x, @y, x_width, @height - 1, graphics_color, relative_z_order(Z_ORDER_GRAPHIC_ELEMENTS))
         end
 
+        def handle_update update_count, mouse_x, mouse_y
+            if @pause 
+                # do nothing 
+            else 
+                if @timer_start_count.nil?
+                    @timer_start_count = 0 
+                else 
+                    @timer_start_count = @timer_start_count + 1
+                    if @timer_start_count > @counter_delay
+                        decrease_percent_full 
+                        @timer_start_count = 0
+                    end
+                end
+            end
+        end
+
         def decrease_percent_full(amount = 0.05)
             if amount > 1
                 amount = amount / 100
             end
             @percent_full = @percent_full - amount
-            if @percent_full <= 0
-                return true 
-            end 
-            false
+            result = is_done 
+            if result 
+                @pause = true 
+            end
+            result
         end
 
         def reset 
