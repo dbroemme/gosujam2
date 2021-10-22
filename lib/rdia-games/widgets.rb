@@ -332,6 +332,12 @@ module RdiaGames
             set_absolute_position(x, y)
             set_dimensions(12, 12)
         end
+
+        def calc_aim_point(aim_rad, proposed_speed) 
+            aim_x = center_x + (proposed_speed.to_f * Math.cos(aim_rad))
+            aim_y = center_y - (proposed_speed.to_f * Math.sin(aim_rad))
+            Point.new(aim_x, aim_y)
+        end
     end 
 
     class Player < GameObject 

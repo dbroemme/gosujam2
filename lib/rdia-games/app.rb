@@ -6,6 +6,7 @@ include Wads
 module RdiaGames
 
     RDIA_MODE_START = "start"
+    RDIA_MODE_PREPARE = "prepare"
     RDIA_MODE_PLAY = "play"
     RDIA_MODE_END = "end"
 

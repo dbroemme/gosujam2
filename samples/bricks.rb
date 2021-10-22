@@ -14,8 +14,10 @@ GAME_START_Y = 10
 class BricksGame < RdiaGame
     def initialize
         super(GAME_WIDTH, GAME_HEIGHT, "Ruby Bricks", BricksDisplay.new)
-        register_hold_down_key(Gosu::KbD)    # Move left
-        register_hold_down_key(Gosu::KbF)    # Move right
+        register_hold_down_key(Gosu::KbW)
+        register_hold_down_key(Gosu::KbA)
+        register_hold_down_key(Gosu::KbS)
+        register_hold_down_key(Gosu::KbD)
     end 
 end
 
@@ -66,11 +68,13 @@ class BricksDisplay < Widget
         @player.set_absolute_position(400, 627)    # 579 is height we started with
         add_child(@player)
 
-        @ball = Ball.new(442, 550)
-        #@ball.start_move_in_direction(1.77)
+        @ball = Ball.new(750, 550)
         @ball.start_move_in_direction(DEG_90 - 0.1)
-        @ball.speed = 3
+        #@ball.speed = 3
         add_child(@ball)
+
+        @aim_radians = DEG_90 - 0.01
+        @aim_speed = 8
 
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
         #@grid.disable_border
@@ -232,23 +236,81 @@ class BricksDisplay < Widget
         end
     end 
 
+    def render
+        #puts "in render with stopped #{@ball.is_stopped} #{@ball.speed} mode #{@game_mode}"
+        if @ball.is_stopped and @game_mode == RDIA_MODE_PREPARE 
+            # Draw the aim directional element
+            aim_size = 6
+            aim_colors = [Gosu::Color.argb(0xffDAA6A4), Gosu::Color.argb(0xffDAC1A4),
+                          Gosu::Color.argb(0xffD8DAA4), Gosu::Color.argb(0xffBDDAA4),
+                          Gosu::Color.argb(0xffA4DAA6)]
+            proposed_speed = 12
+            (0..4).each do |n| 
+                aim_point = @ball.calc_aim_point(@aim_radians, proposed_speed)
+                Gosu::draw_rect(aim_point.x - (aim_size / 2), aim_point.y - (aim_size / 2), aim_size, aim_size, aim_colors[n], 20)
+                proposed_speed = proposed_speed + (@aim_speed * 1.5)
+            end
+        end
+    end
+
     def handle_key_held_down id, mouse_x, mouse_y
-        if id == Gosu::KbD 
-            @player.move_left(@grid)
-        elsif id == Gosu::KbF
-            @player.move_right(@grid)
+        if @game_mode == RDIA_MODE_PLAY
+            if id == Gosu::KbA or id == Gosu::KbS
+                @player.move_left(@grid)
+            elsif id == Gosu::KbD
+                @player.move_right(@grid)
+            end
+        elsif @game_mode == RDIA_MODE_PREPARE 
+            if id == Gosu::KbW
+                @aim_speed = @aim_speed + 0.25
+                if @aim_speed > 12
+                    @aim_speed = 12
+                end
+            elsif id == Gosu::KbS
+                @aim_speed = @aim_speed - 0.25
+                if @aim_speed < 3
+                    @aim_speed = 3
+                end
+            elsif id == Gosu::KbA
+                @aim_radians = @aim_radians + 0.01
+            elsif id == Gosu::KbD
+                @aim_radians = @aim_radians - 0.01
+            end
         end
     end
 
     def handle_key_press id, mouse_x, mouse_y
-        if id == Gosu::KbD 
-            @player.start_move_left 
-        elsif id == Gosu::KbF
-            @player.start_move_right 
-        elsif id == Gosu::KbS
-            @ball.speed_up
-        elsif id == Gosu::KbQ or id == Gosu::KbW
-            @pause = !@pause
+        if @game_mode == RDIA_MODE_PLAY
+            if id == Gosu::KbA or id == Gosu::KbS
+                @player.start_move_left 
+            elsif id == Gosu::KbD
+                @player.start_move_right 
+            elsif id == Gosu::KbSpace
+                @ball.speed_up
+            elsif id == Gosu::KbQ
+                @pause = !@pause
+            end
+        elsif @game_mode == RDIA_MODE_PREPARE 
+            if id == Gosu::KbW
+                @aim_speed = @aim_speed + 1
+                if @aim_speed > 12
+                    @aim_speed = 12
+                end
+            elsif id == Gosu::KbS
+                @aim_speed = @aim_speed - 1
+                if @aim_speed < 3
+                    @aim_speed = 3
+                end
+            elsif id == Gosu::KbA
+                @aim_radians = @aim_radians + 0.01
+            elsif id == Gosu::KbD
+                @aim_radians = @aim_radians - 0.01
+            elsif id == Gosu::KbSpace
+                @ball.direction = @aim_radians 
+                @ball.speed = @aim_speed 
+                @pause = false 
+                @game_mode = RDIA_MODE_PLAY
+            end
         end
     end
 
@@ -257,8 +319,7 @@ class BricksDisplay < Widget
         info("The overlay widget is #{@overlay_widget}")
         if result.close_widget 
             if @game_mode == RDIA_MODE_START
-                @game_mode = RDIA_MODE_PLAY
-                @pause = false 
+                @game_mode = RDIA_MODE_PREPARE
             elsif @game_mode == RDIA_MODE_END
                 @game_mode = RDIA_MODE_START
             end
