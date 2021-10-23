@@ -25,7 +25,6 @@ class BricksDisplay < Widget
     def initialize
         super(0, 0, GAME_WIDTH, GAME_HEIGHT)
         set_layout(LAYOUT_HEADER_CONTENT)
-        #set_theme(WadsDarkRedBrownTheme.new)
         disable_border
         @pause = true
         @game_mode = RDIA_MODE_START
@@ -50,10 +49,10 @@ class BricksDisplay < Widget
         @level_text = east_panel.get_layout.add_text("#{@level}  ",
                                                      {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
         
-        @progress_bar = ProgressBar.new(200, 60, 400, 20, {ARG_DELAY => 30})
+        @progress_bar = ProgressBar.new(200, 70, 400, 10, {ARG_DELAY => 30})
         add_child(@progress_bar)
 
-        add_overlay(create_overlay_widget)
+        add_overlay(create_overlay_widget("Welcome to Ruby Bricks", "welcome"))
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
         @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
@@ -61,6 +60,7 @@ class BricksDisplay < Widget
         @yellow_dot = @tileset[18]
         @green_dot = @tileset[19]
         @player_tile = @tileset[81]
+        @goal_tile = @tileset[64]
         @fire_transition_tile = @tileset[66]
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
@@ -80,8 +80,23 @@ class BricksDisplay < Widget
         @aim_speed = 6
 
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
-        instantiate_elements(File.readlines("./data/board.txt"))
         add_child(@grid)
+        start_level
+    end 
+
+    def start_level
+        @progress_bar.stop
+        @progress_bar.reset
+        @grid.clear_tiles
+        @level_text.label = "#{@level}  "
+        @fire_level = 36
+        file_name = "./data/board#{@level}.txt"
+        if File.exist?(file_name)
+            instantiate_elements(File.readlines(file_name))
+        else 
+            # There are no more levels
+            @game_mode = RDIA_MODE_END
+        end
     end 
 
     def handle_update update_count, mouse_x, mouse_y
@@ -91,7 +106,7 @@ class BricksDisplay < Widget
         if @progress_bar.is_done
             @fire_level = @fire_level - 1
             (1..43).each do |n|
-            info("Setting tile #{n}, #{@fire_level} to fire tile")
+                #info("Setting tile #{n}, #{@fire_level} to fire tile")
                 @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
             end
             @player.y = @player.y - 16
@@ -195,9 +210,16 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_GOAL
             @pause = true
-            @game_mode = RDIA_MODE_END
-            if @overlay_widget.nil?
-                add_overlay(create_you_win_widget)
+            @level = @level + 1
+            start_level
+            if @game_mode == RDIA_MODE_END
+                if @overlay_widget.nil?
+                    add_overlay(create_overlay_widget("You won!", "win"))
+                end
+            elsif @game_mode == RDIA_MODE_PREPARE
+                if @overlay_widget.nil?
+                    add_overlay(create_overlay_widget("Congrats! You completed the level.", "#{@level}"))
+                end
             end
         end
         true
@@ -372,6 +394,8 @@ class BricksDisplay < Widget
                     img = DiagonalWall.new(@red_wall_sw, QUAD_SW)
                 elsif char == "Z"
                     img = DiagonalWall.new(@red_wall_se, QUAD_SE)
+                elsif char == "E"
+                    img = GoalArea.new(@goal_tile)
                 end
                 
                 if img.nil?
@@ -591,39 +615,33 @@ class BricksTheme < GuiTheme
     end
 end
 
+class OverlayTheme < GuiTheme
+    def initialize
+        super(COLOR_WHITE,                # text color
+              COLOR_HEADER_BRIGHT_BLUE,   # graphic elements
+              COLOR_VERY_LIGHT_BLUE,      # border color
+              COLOR_BLACK,                # background
+              COLOR_LIGHT_GRAY,           # selected item
+              true,                       # use icons
+              Gosu::Font.new(22),  # regular font
+              Gosu::Font.new(38))  # large font
+    end
 
-def create_overlay_widget
-    InfoBox.new(100, 60, 600, 400, "Welcome to Ruby Bricks", overlay_content, { ARG_THEME => BricksTheme.new})
+    def media_path(file)
+        File.join(File.dirname(File.dirname(__FILE__)), 'media', file)
+    end
 end
 
-def overlay_content
-    <<~HEREDOC
-    Your goal is to clear all of the bricks and dots
-    without letting the ball drop through to the bottom.
-    Hit the 'W' button to get started.
-    HEREDOC
+def create_overlay_widget(title, content_id)
+    content_file_name = File.join(File.dirname(File.dirname(__FILE__)), 'data', "messages_#{content_id}.txt")
+    if not File.exist?(content_file_name)
+        raise "The content file #{content_file_name} does not exist"
+    end
+    content = File.readlines(content_file_name).join("")
+    InfoBox.new(100, 60, 600, 400, title, content, { ARG_THEME => OverlayTheme.new})
 end
 
-def create_you_lose_widget
-    InfoBox.new(100, 60, 600, 400, "Sorry, you lost", you_lose_content, { ARG_THEME => BricksTheme.new})
-end
 
-def you_lose_content
-    <<~HEREDOC
-    Try not to let the ball fall through next time.
-    HEREDOC
-end
-
-def create_you_win_widget
-    InfoBox.new(100, 60, 600, 400, "You win!", you_win_content, { ARG_THEME => WadsDarkRedBrownTheme.new})
-end
-
-def you_win_content
-    <<~HEREDOC
-    You did it. That was amazing!
-    Nice work.
-    HEREDOC
-end
 WadsConfig.instance.set_current_theme(BricksTheme.new)
 
 
