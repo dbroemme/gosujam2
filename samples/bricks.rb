@@ -8,8 +8,6 @@ include RdiaGames
 
 GAME_WIDTH = 800
 GAME_HEIGHT = 700
-GAME_START_X = 10
-GAME_START_Y = 10
 
 class BricksGame < RdiaGame
     def initialize
@@ -26,10 +24,10 @@ class BricksDisplay < Widget
         super(0, 0, GAME_WIDTH, GAME_HEIGHT)
         set_layout(LAYOUT_HEADER_CONTENT)
         disable_border
-        @pause = true
         @game_mode = RDIA_MODE_START
         @score = 0
         @level = 1
+        @lives = 1   # TEMP TODO
         @mode_start_count = 0
         @fire_level = 36
 
@@ -52,7 +50,9 @@ class BricksDisplay < Widget
         @progress_bar = ProgressBar.new(200, 70, 400, 10, {ARG_DELAY => 30})
         add_child(@progress_bar)
 
-        add_overlay(create_overlay_widget("Welcome to Ruby Bricks", "welcome"))
+        pause_game
+
+        add_overlay(GameMessageOverlay.new("Welcome to Ruby Bricks", "welcome"))
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
         @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
@@ -69,10 +69,9 @@ class BricksDisplay < Widget
         @red_wall_ne = @diagonal_tileset[10]
 
         @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
-        @player.set_absolute_position(400, 627)
         add_child(@player)
 
-        @ball = Ball.new(750, 550)
+        @ball = Ball.new(0, 0)
         @ball.start_move_in_direction(DEG_90 - 0.2)
         add_child(@ball)
 
@@ -84,7 +83,34 @@ class BricksDisplay < Widget
         start_level
     end 
 
+    def pause_game 
+        if @pause 
+            return 
+        end 
+        @pause = true 
+        @progress_bar.stop
+    end 
+
+    def restart_game 
+        @pause = false 
+        @progress_bar.start
+    end 
+
+    def more_levels_left
+        content_file_name = File.join(File.dirname(File.dirname(__FILE__)), 'data', "messages_#{@level}.txt")
+        File.exist?(content_file_name)
+    end
+
     def start_level
+        level_config_file_name = File.join(File.dirname(File.dirname(__FILE__)), 'data', "level#{@level}.txt")
+        level_config = eval(File.open(level_config_file_name) {|f| f.read })
+        @player.set_absolute_position(level_config[:player_x], level_config[:player_y])
+        @ball.set_absolute_position(level_config[:ball_x], level_config[:ball_y])
+        @ball.start_move_in_direction(DEG_90 - 0.2)
+
+        if @play_again_button 
+            remove_child(@play_again_button)
+        end
         @progress_bar.stop
         @progress_bar.reset
         @grid.clear_tiles
@@ -93,6 +119,7 @@ class BricksDisplay < Widget
         file_name = "./data/board#{@level}.txt"
         if File.exist?(file_name)
             instantiate_elements(File.readlines(file_name))
+            @game_mode = RDIA_MODE_PREPARE
         else 
             # There are no more levels
             @game_mode = RDIA_MODE_END
@@ -136,7 +163,7 @@ class BricksDisplay < Widget
                 end
             else 
                 #info("Found candidate widgets to interact")
-                if interact_with_widgets(widgets_at_proposed_spot)
+                if interact_with_widgets(widgets_at_proposed_spot, update_count)
                     @ball.set_absolute_position(proposed_next_x, proposed_next_y) 
                 end
             end
@@ -157,7 +184,7 @@ class BricksDisplay < Widget
         @ball.last_element_bounce = @player.object_id
     end
 
-    def interact_with_widgets(widgets)
+    def interact_with_widgets(widgets, update_count)
         if widgets.size == 1
             w = widgets[0]
             if w.object_id == @ball.last_element_bounce
@@ -187,10 +214,26 @@ class BricksDisplay < Widget
             @ball.stop_move
         end
         if w.interaction_results.include? RDIA_REACT_LOSE 
-            @pause = true
-            @game_mode = RDIA_MODE_END
-            if @overlay_widget.nil?
-                add_overlay(create_you_lose_widget)
+            if @pause 
+                info("Skipping the lose interaction because we are paused")
+            else
+                pause_game
+                @lives = @lives - 1
+                if @lives == 0
+                    @game_mode = RDIA_MODE_END
+                    add_overlay(GameMessageOverlay.new("Sorry, you lost", "lose"))
+                    instantiate_elements(File.readlines("./data/board_end.txt"))
+                    @play_again_button = add_button("Play again", 300, 300, 200) do
+                        @level = 1
+                        @lives = 3
+                        @mode_start_count = 0
+                        @fire_level = 36
+                        start_level
+                    end
+                else 
+                    add_overlay(GameMessageOverlay.new("Oh no! Your ball was lost.", "tryagain"))
+                    @game_mode = RDIA_MODE_RESTART 
+                end
             end
         end
         if w.interaction_results.include? RDIA_REACT_BOUNCE 
@@ -201,24 +244,26 @@ class BricksDisplay < Widget
         if w.interaction_results.include? RDIA_REACT_CONSUME
             @grid.remove_tile_at_absolute(w.x + 1, w.y + 1)
         end
-        if w.interaction_results.include? RDIA_REACT_GOAL
-            # TODO end this round
-        end
         if w.interaction_results.include? RDIA_REACT_SCORE
             @score = @score + w.score
             @score_text.label = "  #{@score}"
         end
         if w.interaction_results.include? RDIA_REACT_GOAL
-            @pause = true
-            @level = @level + 1
-            start_level
-            if @game_mode == RDIA_MODE_END
-                if @overlay_widget.nil?
-                    add_overlay(create_overlay_widget("You won!", "win"))
-                end
-            elsif @game_mode == RDIA_MODE_PREPARE
-                if @overlay_widget.nil?
-                    add_overlay(create_overlay_widget("Congrats! You completed the level.", "#{@level}"))
+            if @pause 
+                # We already hit a goal widget, so don't need to do it again
+            else 
+                pause_game
+                info("Bumping up the level #{@level}")
+                @level = @level + 1
+                #start_level
+                if more_levels_left
+                    info("There are more levels left after #{@level}")
+                    @game_mode = RDIA_MODE_RESTART
+                    add_overlay(GameMessageOverlay.new("Congrats! You completed level #{@level - 1}.", "#{@level}"))
+                else
+                    info("No more levels left after #{@level}")
+                    @game_mode = RDIA_MODE_END
+                    add_overlay(GameMessageOverlay.new("You won!", "win"))
                 end
             end
         end
@@ -324,7 +369,11 @@ class BricksDisplay < Widget
             elsif id == Gosu::KbSpace
                 @ball.speed_up
             elsif id == Gosu::KbQ
-                @pause = !@pause
+                if @pause 
+                    restart_game 
+                else 
+                    pause_game 
+                end
             end
         elsif @game_mode == RDIA_MODE_PREPARE 
             if id == Gosu::KbW
@@ -344,7 +393,7 @@ class BricksDisplay < Widget
             elsif id == Gosu::KbSpace
                 @ball.direction = @aim_radians 
                 @ball.speed = @aim_speed 
-                @pause = false 
+                restart_game 
                 @game_mode = RDIA_MODE_PLAY
                 @mode_start_count = -1
                 @progress_bar.start
@@ -354,10 +403,13 @@ class BricksDisplay < Widget
 
     def intercept_widget_event(result)
         info("We intercepted the event #{result.inspect}")
-        info("The overlay widget is #{@overlay_widget}")
+        info("Game mode is #{@game_mode}. The overlay widget is #{@overlay_widget}")
         if result.close_widget 
             if @game_mode == RDIA_MODE_START
                 @game_mode = RDIA_MODE_PREPARE
+            elsif @game_mode == RDIA_MODE_RESTART
+                @game_mode = RDIA_MODE_PREPARE
+                start_level
             elsif @game_mode == RDIA_MODE_END
                 @game_mode = RDIA_MODE_START
             end
@@ -632,14 +684,22 @@ class OverlayTheme < GuiTheme
     end
 end
 
-def create_overlay_widget(title, content_id)
-    content_file_name = File.join(File.dirname(File.dirname(__FILE__)), 'data', "messages_#{content_id}.txt")
-    if not File.exist?(content_file_name)
-        raise "The content file #{content_file_name} does not exist"
+class GameMessageOverlay < InfoBox
+    def initialize(title, content_id)
+        content_file_name = File.join(File.dirname(File.dirname(__FILE__)), 'data', "messages_#{content_id}.txt")
+        if not File.exist?(content_file_name)
+            raise "The content file #{content_file_name} does not exist"
+        end
+        content = File.readlines(content_file_name).join("")
+        super(100, 60, 600, 400, title, content, { ARG_THEME => OverlayTheme.new})
     end
-    content = File.readlines(content_file_name).join("")
-    InfoBox.new(100, 60, 600, 400, title, content, { ARG_THEME => OverlayTheme.new})
-end
+
+    def handle_key_press id, mouse_x, mouse_y
+        if id == Gosu::KbEscape or id == Gosu::KbEnter or id == Gosu::KbSpace
+            return WidgetResult.new(true)
+        end
+    end
+end 
 
 
 WadsConfig.instance.set_current_theme(BricksTheme.new)
