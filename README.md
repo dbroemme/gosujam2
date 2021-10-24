@@ -1,6 +1,7 @@
 # Ruby Bricks Game
 
 The first in a series of games from Ruby Does It Again (https://www.rubydoesitagain.com)
+This game was created (in a hurry) for the Gosu Game Jam.
 
 ![alt Screenshot](https://github.com/dbroemme/rdia-games/blob/master/media/BricksScreenshot1.png?raw=true)
 
