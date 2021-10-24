@@ -29,6 +29,7 @@ class BricksDisplay < Widget
         @level = 1
         @lives = 3
         @fire_level = 36
+        @update_fire_after_next_player_hit = false 
         @launch_font = Gosu::Font.new(56, {:name => File.join(File.dirname(File.dirname(__FILE__)), 'media', "armalite_rifle.ttf")})
 
         header_panel = add_panel(SECTION_NORTH)
@@ -130,6 +131,7 @@ class BricksDisplay < Widget
         @fire_level = 36
         @one_way_doors = []
         @on_one_way_door = false
+        @update_fire_after_next_player_hit = false 
         file_name = "./data/board#{@level}.txt"
         if File.exist?(file_name)
             instantiate_elements(File.readlines(file_name))
@@ -141,14 +143,17 @@ class BricksDisplay < Widget
 
     def handle_update update_count, mouse_x, mouse_y
         if @progress_bar.is_done
-            @fire_level = @fire_level - 1
-            (1..44).each do |n|
-                #info("Setting tile #{n}, #{@fire_level} to fire tile")
-                @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
+            if @update_fire_after_next_player_hit and @ball.y < @player.y - 36
+                @fire_level = @fire_level - 1
+                (1..44).each do |n|
+                    #info("Setting tile #{n}, #{@fire_level} to fire tile")
+                    @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
+                end
+                @player.y = @player.y - 16
+                @progress_bar.reset
+                @progress_bar.start 
+                @update_fire_after_next_player_hit = false 
             end
-            @player.y = @player.y - 16
-            @progress_bar.reset
-            @progress_bar.start
         end
 
         if @launch_countdown
@@ -208,6 +213,9 @@ class BricksDisplay < Widget
         info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
         info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
         @ball.last_element_bounce = @player.object_id
+        if @progress_bar.is_done
+            @update_fire_after_next_player_hit = true 
+        end
     end
 
     def interact_with_widgets(widgets, update_count)
