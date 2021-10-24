@@ -58,16 +58,7 @@ class BricksDisplay < Widget
         add_overlay(GameMessageOverlay.new("Welcome to Ruby Bricks", "welcome"))
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
-        @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
-        @red_wall = @tileset[7]
-        @yellow_dot = @tileset[18]
-        @green_dot = @tileset[19]
-        @player_tile = @tileset[81]
-        @goal_tile = @tileset[64]
-        @fire_transition_tile = @tileset[66]
-        @tree_tile = @tileset[38]
-        @torch_tile = @tileset[59]
-        @one_way_tile = @tileset[29]
+        set_tiles
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
         @red_wall_sw = @diagonal_tileset[7]
@@ -88,6 +79,32 @@ class BricksDisplay < Widget
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
         add_child(@grid)
         start_level
+    end 
+
+    def set_tiles
+        if @level == 2
+            @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
+            @red_wall = @tileset[7]
+            @yellow_dot = @tileset[18]
+            @green_dot = @tileset[19]
+            @player_tile = @tileset[81]
+            @goal_tile = @tileset[64]
+            @fire_transition_tile = @tileset[66]
+            @tree_tile = @tileset[38]
+            @torch_tile = @tileset[59]
+            @one_way_tile = @tileset[29]
+        else 
+            @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
+            @red_wall = @tileset[14]
+            @yellow_dot = @tileset[18]
+            @green_dot = @tileset[19]
+            @player_tile = @tileset[81]
+            @goal_tile = @tileset[21]
+            @fire_transition_tile = @tileset[66]
+            @tree_tile = @tileset[63]
+            @torch_tile = @tileset[47]
+            @one_way_tile = @tileset[29]
+        end
     end 
 
     def pause_game 
@@ -130,6 +147,7 @@ class BricksDisplay < Widget
         @fire_level = 36
         @one_way_doors = []
         @on_one_way_door = false
+        set_tiles
         @update_fire_after_next_player_hit = false 
         file_name = "./data/board#{@level}.txt"
         if File.exist?(file_name)
@@ -192,7 +210,11 @@ class BricksDisplay < Widget
                 @launch_text = "3"
                 @launch_x = nil
             elsif @launch_countdown < 240
-                @launch_text = "Get to the green exit"
+                if @level == 1
+                    @launch_text = "Get to the green exit"
+                else 
+                    @launch_text = "Get to the blue exit"
+                end
                 @launch_x = 100
             end
         else 
