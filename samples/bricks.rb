@@ -27,9 +27,9 @@ class BricksDisplay < Widget
         @game_mode = RDIA_MODE_START
         @score = 0
         @level = 1
-        @lives = 1   # TEMP TODO
-        @mode_start_count = 0
+        @lives = 3
         @fire_level = 36
+        @launch_font = Gosu::Font.new(56, {:name => File.join(File.dirname(File.dirname(__FILE__)), 'media', "armalite_rifle.ttf")})
 
         header_panel = add_panel(SECTION_NORTH)
         header_panel.get_layout.add_text("Ruby Bricks",
@@ -47,7 +47,8 @@ class BricksDisplay < Widget
         @level_text = east_panel.get_layout.add_text("#{@level}  ",
                                                      {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
         
-        @progress_bar = ProgressBar.new(200, 70, 400, 10, {ARG_DELAY => 30})
+        @progress_bar = ProgressBar.new(200, 70, 400, 10, {ARG_DELAY => 6,
+                                                           ARG_PROGRESS_AMOUNT => 0.01})
         add_child(@progress_bar)
 
         pause_game
@@ -62,6 +63,8 @@ class BricksDisplay < Widget
         @player_tile = @tileset[81]
         @goal_tile = @tileset[64]
         @fire_transition_tile = @tileset[66]
+        @tree_tile = @tileset[38]
+        @torch_tile = @tileset[59]
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
         @red_wall_sw = @diagonal_tileset[7]
@@ -119,7 +122,6 @@ class BricksDisplay < Widget
         file_name = "./data/board#{@level}.txt"
         if File.exist?(file_name)
             instantiate_elements(File.readlines(file_name))
-            @game_mode = RDIA_MODE_PREPARE
         else 
             # There are no more levels
             @game_mode = RDIA_MODE_END
@@ -127,12 +129,9 @@ class BricksDisplay < Widget
     end 
 
     def handle_update update_count, mouse_x, mouse_y
-        if @mode_start_count < 0
-            @mode_start_count = update_count 
-        end 
         if @progress_bar.is_done
             @fire_level = @fire_level - 1
-            (1..43).each do |n|
+            (1..44).each do |n|
                 #info("Setting tile #{n}, #{@fire_level} to fire tile")
                 @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
             end
@@ -140,6 +139,23 @@ class BricksDisplay < Widget
             @progress_bar.reset
             @progress_bar.start
         end
+
+        if @launch_countdown
+            @launch_countdown = @launch_countdown -1
+            if @launch_countdown < 0
+                @launch_countdown = nil
+                @launch_text = nil
+                launch_ball
+            elsif @launch_countdown < 60
+                @launch_text = "1"
+            elsif @launch_countdown < 120
+                @launch_text = "2"
+            elsif @launch_countdown < 180
+                @launch_text = "3"
+            end
+        else 
+            @launch_text = nil 
+        end 
 
         return unless @ball.can_move
         return unless @ball.speed > 0
@@ -226,7 +242,6 @@ class BricksDisplay < Widget
                     @play_again_button = add_button("Play again", 300, 300, 200) do
                         @level = 1
                         @lives = 3
-                        @mode_start_count = 0
                         @fire_level = 36
                         start_level
                     end
@@ -332,6 +347,10 @@ class BricksDisplay < Widget
                 proposed_speed = proposed_speed + (@aim_speed * 1.5)
             end
         end
+
+        if @launch_text
+            @launch_font.draw_text(@launch_text, 380, 400, 20, 1, 1, COLOR_LIGHT_GRAY)
+        end
     end
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -391,14 +410,17 @@ class BricksDisplay < Widget
             elsif id == Gosu::KbD
                 @aim_radians = @aim_radians - 0.01
             elsif id == Gosu::KbSpace
-                @ball.direction = @aim_radians 
-                @ball.speed = @aim_speed 
-                restart_game 
-                @game_mode = RDIA_MODE_PLAY
-                @mode_start_count = -1
-                @progress_bar.start
+                launch_ball
             end
         end
+    end
+
+    def launch_ball 
+        @ball.direction = @aim_radians 
+        @ball.speed = @aim_speed 
+        restart_game 
+        @game_mode = RDIA_MODE_PLAY
+        @progress_bar.start
     end
 
     def intercept_widget_event(result)
@@ -407,8 +429,10 @@ class BricksDisplay < Widget
         if result.close_widget 
             if @game_mode == RDIA_MODE_START
                 @game_mode = RDIA_MODE_PREPARE
+                @launch_countdown = 240    
             elsif @game_mode == RDIA_MODE_RESTART
                 @game_mode = RDIA_MODE_PREPARE
+                @launch_countdown = 240    
                 start_level
             elsif @game_mode == RDIA_MODE_END
                 @game_mode = RDIA_MODE_START
@@ -448,6 +472,10 @@ class BricksDisplay < Widget
                     img = DiagonalWall.new(@red_wall_se, QUAD_SE)
                 elsif char == "E"
                     img = GoalArea.new(@goal_tile)
+                elsif char == "N"
+                    img = BackgroundArea.new(@tree_tile)
+                elsif char == "D"
+                    img = BackgroundArea.new(@torch_tile)
                 end
                 
                 if img.nil?

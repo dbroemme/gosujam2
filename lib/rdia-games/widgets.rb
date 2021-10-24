@@ -49,6 +49,11 @@ module RdiaGames
             else
                 @counter_delay = 360
             end
+            if args[ARG_PROGRESS_AMOUNT]
+                @increment_amount = args[ARG_PROGRESS_AMOUNT]
+            else 
+                @increment_amount = 0.05
+            end
         end
 
         def start
@@ -87,7 +92,7 @@ module RdiaGames
             end
         end
 
-        def decrease_percent_full(amount = 0.05)
+        def decrease_percent_full(amount = @increment_amount)
             if amount > 1
                 amount = amount / 100
             end
