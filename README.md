@@ -19,10 +19,11 @@ as many bricks as you can. Don't take too long though because the fire level is 
 and will take one of your balls away.
 
 Movement:
+```
 A/S   - move left
 D     - move right
 Space - increase the ball speed
-
+```
 ## Credits
 Credit to Lanea Zimmerman for tiles artwork.
 
