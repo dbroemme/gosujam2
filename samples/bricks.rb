@@ -26,7 +26,7 @@ class BricksDisplay < Widget
         disable_border
         @game_mode = RDIA_MODE_START
         @score = 0
-        @level = 3
+        @level = 1
         @lives = 3
         @fire_level = 36
         @update_fire_after_next_player_hit = false 
