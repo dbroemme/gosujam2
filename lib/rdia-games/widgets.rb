@@ -9,6 +9,7 @@ module RdiaGames
 
     # Possible interactions when one object hits another
     RDIA_REACT_BOUNCE = "bounce"
+    RDIA_REACT_ONE_WAY = "oneway"
     RDIA_REACT_BOUNCE_DIAGONAL = "diagonal"
     RDIA_REACT_CONSUME = "consume"
     RDIA_REACT_GOAL = "goal"
@@ -383,9 +384,9 @@ module RdiaGames
         end
 
         def bounce(axis)
-            puts "START bounce #{axis}. Direction #{@direction}"
+            #puts "START bounce #{axis}. Direction #{@direction}"
             @direction = calculate_bounce(axis)
-            puts "END bounce #{axis}. Direction #{@direction}"
+            #puts "END bounce #{axis}. Direction #{@direction}"
         end
 
         def calculate_bounce(axis)

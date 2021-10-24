@@ -66,6 +66,7 @@ class BricksDisplay < Widget
         @fire_transition_tile = @tileset[66]
         @tree_tile = @tileset[38]
         @torch_tile = @tileset[59]
+        @one_way_tile = @tileset[29]
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
         @red_wall_sw = @diagonal_tileset[7]
@@ -127,6 +128,8 @@ class BricksDisplay < Widget
         @grid.clear_tiles
         @level_text.label = "#{@level}  "
         @fire_level = 36
+        @one_way_doors = []
+        @on_one_way_door = false
         file_name = "./data/board#{@level}.txt"
         if File.exist?(file_name)
             instantiate_elements(File.readlines(file_name))
@@ -275,6 +278,20 @@ class BricksDisplay < Widget
             @score = @score + w.score
             @score_text.label = "#{@score}"
         end
+        if w.interaction_results.include? RDIA_REACT_ONE_WAY
+            @on_one_way_door = true 
+            info("set one way door to #{@on_one_way_door} from #{w}")
+        else 
+            if @on_one_way_door
+                info("changing the one way doors")
+                # Was on a one way door, but now are not
+                @one_way_doors.each do |owd|
+                    owd.set_one_way 
+                end
+                @on_one_way_door = false
+                info("set one way door to #{@on_one_way_door}")
+            end
+        end
         if w.interaction_results.include? RDIA_REACT_GOAL
             if @pause 
                 # We already hit a goal widget, so don't need to do it again
@@ -282,7 +299,6 @@ class BricksDisplay < Widget
                 pause_game
                 info("Bumping up the level #{@level}")
                 @level = @level + 1
-                #start_level
                 if more_levels_left
                     info("There are more levels left after #{@level}")
                     @game_mode = RDIA_MODE_RESTART
@@ -337,10 +353,10 @@ class BricksDisplay < Widget
 
         axis = AXIS_VALUES[w.orientation]
         if @ball.will_hit_axis(axis)
-            puts "Triangle bounce"
+            #puts "Triangle bounce"
             @ball.bounce(axis)
         else 
-            puts "Square bounce"
+            #puts "Square bounce"
             square_bounce(w)
         end
     end 
@@ -498,6 +514,9 @@ class BricksDisplay < Widget
                     img = BackgroundArea.new(@tree_tile)
                 elsif char == "D"
                     img = BackgroundArea.new(@torch_tile)
+                elsif char == "O"
+                    img = OneWayDoor.new(@one_way_tile, @red_wall)
+                    @one_way_doors << img
                 end
                 
                 if img.nil?
@@ -523,6 +542,26 @@ class Wall < GameObject
 
     def interaction_results
         [RDIA_REACT_BOUNCE]
+    end
+end
+
+class OneWayDoor < GameObject
+    attr_accessor :after_image
+    def initialize(image, after_image)
+        super(image)
+        @after_image = after_image
+        @can_move = false
+        @interactions = [RDIA_REACT_ONE_WAY]
+    end
+
+    def interaction_results
+        @interactions
+    end
+
+    def set_one_way
+        puts "Changing the image from #{@img} to #{@after_image}"
+        @img = @after_image
+        @interactions = [RDIA_REACT_BOUNCE]
     end
 end
 
@@ -561,11 +600,8 @@ class DiagonalWall < GameObject
 
         # Based on the radians, check points on the border
         if ball.direction < DEG_90
-            #puts "Triangle: The ball is generally travelling NE"
-            # check points top left and side right
             start_x = ball.center_x 
             while start_x < ball.right_edge
-                #puts "Checking x #{start_x}, #{ball.y}"
                 if contains_point(Point.new(start_x, ball.y))
                     return true 
                 end
@@ -573,17 +609,14 @@ class DiagonalWall < GameObject
             end
             start_y = ball.y 
             while start_y < ball.center_y
-                #puts "Checking x #{ball.right_x}, #{start_y}"
                 if contains_point(Point.new(ball.right_edge, start_y))
                     return true 
                 end
                 start_y = start_y + 1
             end
         elsif ball.direction < DEG_180
-            #puts "Triangle: The ball is generally travelling NW"
             start_x = ball.x 
             while start_x < ball.center_x
-                #puts "Checking x #{start_x}, #{ball.y}"
                 if contains_point(Point.new(start_x, ball.y))
                     return true 
                 end
@@ -591,17 +624,14 @@ class DiagonalWall < GameObject
             end
             start_y = ball.y 
             while start_y < ball.center_y
-                #puts "Checking x #{ball.x}, #{start_y}"
                 if contains_point(Point.new(ball.x, start_y))
                     return true 
                 end
                 start_y = start_y + 1
             end
         elsif ball.direction < DEG_270
-            #puts "Triangle: The ball is generally travelling SW"
             start_y = ball.center_y 
             while start_y < ball.bottom_edge
-                #puts "Checking x #{ball.x}, #{start_y}"
                 if contains_point(Point.new(ball.x, start_y))
                     return true 
                 end
@@ -609,17 +639,14 @@ class DiagonalWall < GameObject
             end
             start_x = ball.x 
             while start_x < ball.center_x
-                #puts "Checking x #{start_x}, #{ball.bottom_y}"
                 if contains_point(Point.new(start_x, ball.bottom_edge))
                     return true 
                 end
                 start_x = start_x + 1
             end
         else 
-            #puts "Triangle: The ball is generally travelling SE"
             start_x = ball.center_x 
             while start_x < ball.right_edge
-                #puts "Checking x #{start_x}, #{ball.bottom_y}"
                 if contains_point(Point.new(start_x, ball.bottom_edge))
                     return true 
                 end
@@ -627,7 +654,6 @@ class DiagonalWall < GameObject
             end
             start_y = ball.center_y 
             while start_y < ball.bottom_edge
-                #puts "Checking x #{ball.right_x}, #{start_y}"
                 if contains_point(Point.new(ball.right_edge, start_y))
                     return true 
                 end
