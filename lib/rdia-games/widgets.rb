@@ -250,8 +250,8 @@ module RdiaGames
         end
 
         def speed_up 
-            if @acceleration < 8
-                @acceleration = @acceleration + 0.4
+            if @acceleration < 4
+                @acceleration = @acceleration + 0.1
             end
             @speed = @speed + @acceleration
             if @speed > @max_speed
@@ -261,7 +261,7 @@ module RdiaGames
     
         def slow_down 
             if @acceleration > 0
-                @acceleration = @acceleration - 0.4
+                @acceleration = @acceleration - 0.1
             end
             @speed = @speed - @acceleration
             if @speed < 0

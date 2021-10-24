@@ -156,7 +156,6 @@ class BricksDisplay < Widget
         end
 
         if @player.overlaps_with(@ball) or @ball.overlaps_with(@player)
-            puts "we need to tilt"
             @ball.last_element_bounce = @player.object_id
             quad = relative_quad_from_center
             gdd = nil
@@ -181,13 +180,20 @@ class BricksDisplay < Widget
             @launch_countdown = @launch_countdown -1
             if @launch_countdown < 0
                 @launch_text = nil
+                @launch_x = nil
                 launch_ball
             elsif @launch_countdown < 60
                 @launch_text = "1"
+                @launch_x = nil
             elsif @launch_countdown < 120
                 @launch_text = "2"
+                @launch_x = nil
             elsif @launch_countdown < 180
                 @launch_text = "3"
+                @launch_x = nil
+            elsif @launch_countdown < 240
+                @launch_text = "Get to the green exit"
+                @launch_x = 100
             end
         else 
             @launch_text = nil 
@@ -247,8 +253,8 @@ class BricksDisplay < Widget
         impact_on_scale = ((@player.right_edge + (@ball.width / 2)) - cx) + 0.25
         pct = impact_on_scale.to_f / scale_length.to_f
         @ball.direction = 0.15 + (pct * (Math::PI - 0.3.to_f))
-        info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
-        info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
+        #info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
+        #info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
         @ball.last_element_bounce = @player.object_id
         if @progress_bar.is_done
             @update_fire_after_next_player_hit = true 
@@ -425,7 +431,12 @@ class BricksDisplay < Widget
         end
 
         if @launch_text
-            @launch_font.draw_text(@launch_text, 380, 400, 20, 1, 1, COLOR_LIGHT_GRAY)
+            if @launch_x 
+                tx = @launch_x 
+            else 
+                tx = 380 
+            end
+            @launch_font.draw_text(@launch_text, tx, 400, 20, 1, 1, COLOR_LIGHT_GRAY)
         end
     end
 

@@ -1,9 +1,12 @@
 Your goal is to clear as many bricks as you can, collect as many
-dots as you can, and get your ball into the green exit areai
+dots as you can, and get your ball into the green exit area
 before the walls or fire come crashing in on you. Don't let your
 ball fall through into the fire.
 
-Movement: A - move left, D - move right
-Start:    Space bar to launch your ball
+Start:  Space bar to launch your ball
           A/D to move launch angle left/right
           W/S to speed up or slow down the launch 
+
+Play:   A - move left
+          D - move right
+          Space bar - increase ball speed
