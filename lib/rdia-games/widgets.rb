@@ -54,6 +54,9 @@ module RdiaGames
             else 
                 @increment_amount = 0.05
             end
+            if args[ARG_THEME]
+                @gui_theme = args[ARG_THEME]
+            end
         end
 
         def start
@@ -68,12 +71,16 @@ module RdiaGames
             @percent_full <= 0
         end 
 
+        def scale(value, max_value)
+            @percent_full = value.to_f / max_value.to_f 
+        end
+
         def render 
             x_width = (@width.to_f * @percent_full).round - 1
             if x_width < 0
                 x_width = 0
             end
-            Gosu::draw_rect(@x, @y, x_width, @height - 1, graphics_color, relative_z_order(Z_ORDER_GRAPHIC_ELEMENTS))
+            Gosu::draw_rect(@x, @y + 1, x_width, @height - 1, graphics_color, relative_z_order(Z_ORDER_GRAPHIC_ELEMENTS))
         end
 
         def handle_update update_count, mouse_x, mouse_y

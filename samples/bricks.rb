@@ -35,21 +35,22 @@ class BricksDisplay < Widget
         header_panel.get_layout.add_text("Ruby Bricks",
                                          { ARG_TEXT_ALIGN => TEXT_ALIGN_CENTER,
                                            ARG_USE_LARGE_FONT => true})
-        subheader_panel = header_panel.get_layout.add_vertical_panel({ARG_LAYOUT => LAYOUT_EAST_WEST,
-                                                                      ARG_DESIRED_WIDTH => GAME_WIDTH})
-        subheader_panel.disable_border
-        west_panel = subheader_panel.add_panel(SECTION_WEST)
-        west_panel.get_layout.add_text("  Score")
-        @score_text = west_panel.get_layout.add_text("  #{@score}")
+        add_text("Score", 20, 40)
+        @score_text = add_text("#{@score}", 20, 70)
+        add_text("Level", 100, 40)
+        @level_text = add_text("#{@level}", 100, 70)
+        add_text("Balls", 180, 40)
+        @lives_text = add_text("#{@lives - 1}", 180, 70)
         
-        east_panel = subheader_panel.add_panel(SECTION_EAST)
-        east_panel.get_layout.add_text("Level  ", {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
-        @level_text = east_panel.get_layout.add_text("#{@level}  ",
-                                                     {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
-        
-        @progress_bar = ProgressBar.new(200, 70, 400, 10, {ARG_DELAY => 6,
-                                                           ARG_PROGRESS_AMOUNT => 0.01})
+        #add_child(Widget.new(260, 40, 500, 55))
+        add_text("Fire", 540, 46)
+        @progress_bar = ProgressBar.new(600, 52, 180, 10, {ARG_DELAY => 6,
+                                                           ARG_PROGRESS_AMOUNT => 0.01,
+                                                           ARG_THEME => WadsNatureTheme.new})
         add_child(@progress_bar)
+        add_text("Speed", 524, 70)
+        @speedometer = ProgressBar.new(600, 76, 180, 10, {ARG_THEME => WadsPurpleTheme.new})
+        add_child(@speedometer)
 
         pause_game
 
@@ -79,7 +80,8 @@ class BricksDisplay < Widget
         add_child(@ball)
 
         @aim_radians = DEG_90 - 0.02
-        @aim_speed = 6
+        @aim_speed = 4
+        @speedometer.scale(@aim_speed, 12)
 
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
         add_child(@grid)
@@ -98,6 +100,12 @@ class BricksDisplay < Widget
         @pause = false 
         @progress_bar.start
     end 
+
+    def tilt 
+        r = ((rand(10) * 0.01) - 0.05) * 20
+        info "#{r}"
+        @ball.direction = @ball.direction + r
+    end
 
     def more_levels_left
         content_file_name = File.join(File.dirname(File.dirname(__FILE__)), 'data', "messages_#{@level}.txt")
@@ -143,7 +151,6 @@ class BricksDisplay < Widget
         if @launch_countdown
             @launch_countdown = @launch_countdown -1
             if @launch_countdown < 0
-                @launch_countdown = nil
                 @launch_text = nil
                 launch_ball
             elsif @launch_countdown < 60
@@ -235,7 +242,12 @@ class BricksDisplay < Widget
             else
                 pause_game
                 @lives = @lives - 1
+                if @lives < 0
+                    @lives = 0
+                end
+                @lives_text.label = "#{@lives - 1}"
                 if @lives == 0
+                    @lives_text.label = "#{@lives}"
                     @game_mode = RDIA_MODE_END
                     add_overlay(GameMessageOverlay.new("Sorry, you lost", "lose"))
                     instantiate_elements(File.readlines("./data/board_end.txt"))
@@ -261,7 +273,7 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_SCORE
             @score = @score + w.score
-            @score_text.label = "  #{@score}"
+            @score_text.label = "#{@score}"
         end
         if w.interaction_results.include? RDIA_REACT_GOAL
             if @pause 
@@ -359,10 +371,13 @@ class BricksDisplay < Widget
                 @player.move_left(@grid)
             elsif id == Gosu::KbD
                 @player.move_right(@grid)
+            elsif id == Gosu::KbT 
+                tilt
             end
         elsif @game_mode == RDIA_MODE_PREPARE 
             if id == Gosu::KbW
                 @aim_speed = @aim_speed + 0.25
+                @speedometer.scale(@aim_speed, 12)
                 if @aim_speed > 12
                     @aim_speed = 12
                 end
@@ -371,6 +386,7 @@ class BricksDisplay < Widget
                 if @aim_speed < 3
                     @aim_speed = 3
                 end
+                @speedometer.scale(@aim_speed, 12)
             elsif id == Gosu::KbA
                 @aim_radians = @aim_radians + 0.01
             elsif id == Gosu::KbD
@@ -387,12 +403,15 @@ class BricksDisplay < Widget
                 @player.start_move_right 
             elsif id == Gosu::KbSpace
                 @ball.speed_up
+                @speedometer.scale(@ball.speed, 12)
             elsif id == Gosu::KbQ
                 if @pause 
                     restart_game 
                 else 
                     pause_game 
                 end
+            elsif id == Gosu::KbT 
+                tilt
             end
         elsif @game_mode == RDIA_MODE_PREPARE 
             if id == Gosu::KbW
@@ -400,11 +419,13 @@ class BricksDisplay < Widget
                 if @aim_speed > 12
                     @aim_speed = 12
                 end
+                @speedometer.scale(@aim_speed, 12)
             elsif id == Gosu::KbS
                 @aim_speed = @aim_speed - 1
                 if @aim_speed < 3
                     @aim_speed = 3
                 end
+                @speedometer.scale(@aim_speed, 12)
             elsif id == Gosu::KbA
                 @aim_radians = @aim_radians + 0.01
             elsif id == Gosu::KbD
@@ -421,6 +442,7 @@ class BricksDisplay < Widget
         restart_game 
         @game_mode = RDIA_MODE_PLAY
         @progress_bar.start
+        @launch_countdown = nil
     end
 
     def intercept_widget_event(result)
@@ -432,7 +454,7 @@ class BricksDisplay < Widget
                 @launch_countdown = 240    
             elsif @game_mode == RDIA_MODE_RESTART
                 @game_mode = RDIA_MODE_PREPARE
-                @launch_countdown = 240    
+                @launch_countdown = 240  
                 start_level
             elsif @game_mode == RDIA_MODE_END
                 @game_mode = RDIA_MODE_START
