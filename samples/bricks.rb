@@ -83,7 +83,7 @@ class BricksDisplay < Widget
 
         @aim_radians = DEG_90 - 0.02
         @aim_speed = 4
-        @speedometer.scale(@aim_speed, 12)
+        @speedometer.scale(@aim_speed, @ball.max_speed)
 
         @grid = GridDisplay.new(0, 100, 16, 50, 38)
         add_child(@grid)
@@ -105,7 +105,6 @@ class BricksDisplay < Widget
 
     def tilt 
         r = ((rand(10) * 0.01) - 0.05) * 20
-        info "#{r}"
         @ball.direction = @ball.direction + r
     end
 
@@ -156,6 +155,28 @@ class BricksDisplay < Widget
             end
         end
 
+        if @player.overlaps_with(@ball) or @ball.overlaps_with(@player)
+            puts "we need to tilt"
+            @ball.last_element_bounce = @player.object_id
+            quad = @ball.relative_quad(@player)
+            gdd = nil
+            if quad == QUAD_NW 
+                @ball.x = @ball.x - 5      
+                @ball.y = @ball.y - 5      
+            elsif quad == QUAD_NE
+                @ball.x = @ball.x + 5      
+                @ball.y = @ball.y - 5      
+            elsif quad == QUAD_SE
+                @ball.x = @ball.x - 5      
+                @ball.y = @ball.y + 5      
+            elsif quad == QUAD_SW
+                @ball.x = @ball.x + 5      
+                @ball.y = @ball.y + 5      
+            else 
+                info("ERROR ball player overlap adjust for ball accel from quad #{quad}")
+            end
+        end
+
         if @launch_countdown
             @launch_countdown = @launch_countdown -1
             if @launch_countdown < 0
@@ -187,7 +208,7 @@ class BricksDisplay < Widget
             widgets_at_proposed_spot = @grid.proposed_widget_at(@ball, proposed_next_x, proposed_next_y)
             if widgets_at_proposed_spot.empty?
                 if @ball.overlaps_with_proposed(proposed_next_x, proposed_next_y, @player)
-                    info("We hit the player!")
+                    #info("We hit the player!")
                     bounce_off_player(proposed_next_x, proposed_next_y)
                 else
                     @ball.set_absolute_position(proposed_next_x, proposed_next_y)
@@ -249,7 +270,7 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_LOSE 
             if @pause 
-                info("Skipping the lose interaction because we are paused")
+                #info("Skipping the lose interaction because we are paused")
             else
                 pause_game
                 @lives = @lives - 1
@@ -288,16 +309,13 @@ class BricksDisplay < Widget
         end
         if w.interaction_results.include? RDIA_REACT_ONE_WAY
             @on_one_way_door = true 
-            info("set one way door to #{@on_one_way_door} from #{w}")
         else 
             if @on_one_way_door
-                info("changing the one way doors")
                 # Was on a one way door, but now are not
                 @one_way_doors.each do |owd|
                     owd.set_one_way 
                 end
                 @on_one_way_door = false
-                info("set one way door to #{@on_one_way_door}")
             end
         end
         if w.interaction_results.include? RDIA_REACT_GOAL
@@ -305,14 +323,14 @@ class BricksDisplay < Widget
                 # We already hit a goal widget, so don't need to do it again
             else 
                 pause_game
-                info("Bumping up the level #{@level}")
+                #info("Bumping up the level #{@level}")
                 @level = @level + 1
                 if more_levels_left
-                    info("There are more levels left after #{@level}")
+                    #info("There are more levels left after #{@level}")
                     @game_mode = RDIA_MODE_RESTART
                     add_overlay(GameMessageOverlay.new("Congrats! You completed level #{@level - 1}.", "#{@level}"))
                 else
-                    info("No more levels left after #{@level}")
+                    #info("No more levels left after #{@level}")
                     @game_mode = RDIA_MODE_END
                     add_overlay(GameMessageOverlay.new("You won!", "win"))
                 end
@@ -327,9 +345,9 @@ class BricksDisplay < Widget
         elsif @ball.center_y >= w.y and @ball.center_y <= w.bottom_edge
             @ball.bounce_x
         else 
-            info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
+            #info("wall doesnt know how to bounce ball. #{w.x}  #{@ball.center_x}  #{w.right_edge}")
             quad = @ball.relative_quad(w)
-            info("Going to bounce off relative quad #{quad}")
+            #info("Going to bounce off relative quad #{quad}")
             gdd = nil
             if quad == QUAD_NW 
                 gdd = @ball.x_or_y_dimension_greater_distance(w.x, w.y)        
@@ -401,7 +419,7 @@ class BricksDisplay < Widget
         elsif @game_mode == RDIA_MODE_PREPARE 
             if id == Gosu::KbW
                 @aim_speed = @aim_speed + 0.25
-                @speedometer.scale(@aim_speed, 12)
+                @speedometer.scale(@aim_speed, @ball.max_speed)
                 if @aim_speed > 12
                     @aim_speed = 12
                 end
@@ -410,7 +428,7 @@ class BricksDisplay < Widget
                 if @aim_speed < 3
                     @aim_speed = 3
                 end
-                @speedometer.scale(@aim_speed, 12)
+                @speedometer.scale(@aim_speed, @ball.max_speed)
             elsif id == Gosu::KbA
                 @aim_radians = @aim_radians + 0.01
             elsif id == Gosu::KbD
@@ -427,7 +445,7 @@ class BricksDisplay < Widget
                 @player.start_move_right 
             elsif id == Gosu::KbSpace
                 @ball.speed_up
-                @speedometer.scale(@ball.speed, 12)
+                @speedometer.scale(@ball.speed, @ball.max_speed)
             elsif id == Gosu::KbQ
                 if @pause 
                     restart_game 
@@ -443,13 +461,13 @@ class BricksDisplay < Widget
                 if @aim_speed > 12
                     @aim_speed = 12
                 end
-                @speedometer.scale(@aim_speed, 12)
+                @speedometer.scale(@aim_speed, 14)
             elsif id == Gosu::KbS
                 @aim_speed = @aim_speed - 1
                 if @aim_speed < 3
                     @aim_speed = 3
                 end
-                @speedometer.scale(@aim_speed, 12)
+                @speedometer.scale(@aim_speed, 14)
             elsif id == Gosu::KbA
                 @aim_radians = @aim_radians + 0.01
             elsif id == Gosu::KbD
@@ -470,8 +488,8 @@ class BricksDisplay < Widget
     end
 
     def intercept_widget_event(result)
-        info("We intercepted the event #{result.inspect}")
-        info("Game mode is #{@game_mode}. The overlay widget is #{@overlay_widget}")
+        #info("We intercepted the event #{result.inspect}")
+        #info("Game mode is #{@game_mode}. The overlay widget is #{@overlay_widget}")
         if result.close_widget 
             if @game_mode == RDIA_MODE_START
                 @game_mode = RDIA_MODE_PREPARE
@@ -567,7 +585,6 @@ class OneWayDoor < GameObject
     end
 
     def set_one_way
-        puts "Changing the image from #{@img} to #{@after_image}"
         @img = @after_image
         @interactions = [RDIA_REACT_BOUNCE]
     end
