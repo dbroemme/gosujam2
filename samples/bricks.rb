@@ -158,7 +158,7 @@ class BricksDisplay < Widget
         if @player.overlaps_with(@ball) or @ball.overlaps_with(@player)
             puts "we need to tilt"
             @ball.last_element_bounce = @player.object_id
-            quad = @ball.relative_quad(@player)
+            quad = relative_quad_from_center
             gdd = nil
             if quad == QUAD_NW 
                 @ball.x = @ball.x - 5      
@@ -224,13 +224,29 @@ class BricksDisplay < Widget
         end
     end
 
+    def relative_quad_from_center
+        if @ball.center_x < @player.center_x
+            if @ball.center_y < @player.center_y 
+                return QUAD_NW 
+            else 
+                return QUAD_SW 
+            end
+        else 
+            if @ball.center_y < @player.center_y 
+                return QUAD_NE
+            else 
+                return QUAD_SE 
+            end
+        end
+    end
+
     def bounce_off_player(proposed_next_x, proposed_next_y)
         in_radians = @ball.direction
         cx = @ball.center_x 
         scale_length = @player.width + @ball.width
         impact_on_scale = ((@player.right_edge + (@ball.width / 2)) - cx) + 0.25
         pct = impact_on_scale.to_f / scale_length.to_f
-        @ball.direction = (pct * Math::PI)
+        @ball.direction = 0.15 + (pct * (Math::PI - 0.3.to_f))
         info("Scale length: #{scale_length}  Impact on Scale: #{impact_on_scale.round}  Pct: #{pct.round(2)}  rad: #{@ball.direction.round(2)}  speed: #{@ball.speed}")
         info("#{impact_on_scale.round}/#{scale_length}:  #{pct.round(2)}%")
         @ball.last_element_bounce = @player.object_id
