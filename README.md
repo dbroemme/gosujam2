@@ -2,7 +2,7 @@
 
 The first in a series of games from Ruby Does It Again (https://www.rubydoesitagain.com)
 
-![alt Screenshot](https://github.com/dbroemme/rdia-games/blob/main/media/BricksScreenshot1.png?raw=true)
+![alt Screenshot](https://github.com/dbroemme/rdia-games/blob/master/media/BricksScreenshot1.png?raw=true)
 
 ## Installation
 
