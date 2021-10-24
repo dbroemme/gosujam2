@@ -162,8 +162,12 @@ class BricksDisplay < Widget
         @player.set_absolute_position(level_config[:player_x], level_config[:player_y])
         @ball.set_absolute_position(level_config[:ball_x], level_config[:ball_y])
         @ball.start_move_in_direction(DEG_90 - 0.2)
-        if @level == 3
+        if @level == 2
             @aim_radians = DEG_135 
+            @aim_speed = 5
+        elsif @level == 3
+            @aim_radians = DEG_135 
+            @aim_speed = 6
         end
         if @play_again_button 
             remove_child(@play_again_button)
@@ -510,8 +514,15 @@ class BricksDisplay < Widget
                 end
             elsif id == Gosu::KbS
                 @aim_speed = @aim_speed - 0.25
-                if @aim_speed < 3
-                    @aim_speed = 3
+                if @level == 1
+                    min_speed = 3
+                elsif @level == 2
+                    min_speed = 4 
+                else 
+                    min_speed = 5
+                end
+                if @aim_speed < min_speed
+                    @aim_speed = min_speed
                 end
                 @speedometer.scale(@aim_speed, @ball.max_speed)
             elsif id == Gosu::KbA
