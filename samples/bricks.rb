@@ -126,7 +126,7 @@ class BricksDisplay < Widget
         @progress_bar.stop
         @progress_bar.reset
         @grid.clear_tiles
-        @level_text.label = "#{@level}  "
+        @level_text.label = "#{@level}"
         @fire_level = 36
         @one_way_doors = []
         @on_one_way_door = false
@@ -302,7 +302,13 @@ class BricksDisplay < Widget
                     @play_again_button = add_button("Play again", 300, 300, 200) do
                         @level = 1
                         @lives = 3
-                        @fire_level = 36
+                        @score = 0
+                        @score_text.label = "#{@score}"
+                        @level_text.label = "#{@level}"
+                        @lives_text.label = "#{@lives - 1}"
+                        @update_fire_after_next_player_hit = false 
+                        @game_mode = RDIA_MODE_PREPARE
+                        @launch_countdown = 240 
                         start_level
                     end
                 else 
