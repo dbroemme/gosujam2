@@ -1,12 +1,12 @@
-Your goal is to clear as many bricks as you can, collect as many
-dots as you can, and get your ball into the green exit area
-before the walls or fire come crashing in on you. Don't let your
-ball fall through into the fire.
+It is summer in Brickland, and you need to get your ball to the
+green field out of the castle before it is engulfed in flames.
+Clear as many bricks and collect as many dots as you can
+along the way before exiting into the green area at the top.
+Don't take too long because the fire level will be rising.
 
 Start:  Space bar to launch your ball
           A/D to move launch angle left/right
           W/S to speed up or slow down the launch 
-
 Play:   A - move left
           D - move right
           Space bar - increase ball speed

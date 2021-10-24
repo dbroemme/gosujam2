@@ -11,7 +11,7 @@ GAME_HEIGHT = 700
 
 class BricksGame < RdiaGame
     def initialize
-        super(GAME_WIDTH, GAME_HEIGHT, "Ruby Bricks", BricksDisplay.new)
+        super(GAME_WIDTH, GAME_HEIGHT, "Chaos in Ruby Brickland", BricksDisplay.new)
         register_hold_down_key(Gosu::KbW)
         register_hold_down_key(Gosu::KbA)
         register_hold_down_key(Gosu::KbS)
@@ -26,14 +26,14 @@ class BricksDisplay < Widget
         disable_border
         @game_mode = RDIA_MODE_START
         @score = 0
-        @level = 1
+        @level = 3
         @lives = 3
         @fire_level = 36
         @update_fire_after_next_player_hit = false 
         @launch_font = Gosu::Font.new(56, {:name => File.join(File.dirname(File.dirname(__FILE__)), 'media', "armalite_rifle.ttf")})
 
         header_panel = add_panel(SECTION_NORTH)
-        header_panel.get_layout.add_text("Ruby Bricks",
+        header_panel.get_layout.add_text("Ruby Brickland",
                                          { ARG_TEXT_ALIGN => TEXT_ALIGN_CENTER,
                                            ARG_USE_LARGE_FONT => true})
         add_text("Score", 20, 40)
@@ -55,15 +55,20 @@ class BricksDisplay < Widget
 
         pause_game
 
-        add_overlay(GameMessageOverlay.new("Welcome to Ruby Bricks", "welcome"))
+        add_overlay(GameMessageOverlay.new("Welcome to Ruby Brickland", "welcome"))
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
-        set_tiles
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
         @red_wall_se = @diagonal_tileset[0]
         @red_wall_sw = @diagonal_tileset[7]
         @red_wall_nw = @diagonal_tileset[13]
         @red_wall_ne = @diagonal_tileset[10]
+        @diagonal_winter = Gosu::Image.load_tiles("media/diagonalwinter.png", 16, 16, tileable: true)
+        @winter_se = @diagonal_winter[0]
+        @winter_sw = @diagonal_winter[7]
+        @winter_nw = @diagonal_winter[13]
+        @winter_ne = @diagonal_winter[10]
+        set_tiles
 
         @player = Player.new(@player_tile, 6, 1)   # 6 tiles wide, so 6 * 16 = 06
         add_child(@player)
@@ -82,7 +87,7 @@ class BricksDisplay < Widget
     end 
 
     def set_tiles
-        if @level == 2
+        if @level == 1
             @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
             @red_wall = @tileset[7]
             @yellow_dot = @tileset[18]
@@ -93,17 +98,38 @@ class BricksDisplay < Widget
             @tree_tile = @tileset[38]
             @torch_tile = @tileset[59]
             @one_way_tile = @tileset[29]
-        else 
-            @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
+        elsif @level == 2
+            @blue_brick = @tileset[16]
+            @red_wall = @tileset[8]
+            @yellow_dot = @tileset[18]
+            @green_dot = @tileset[19]
+            @player_tile = @tileset[81]
+            @goal_tile = @tileset[10]
+            @fire_transition_tile = @tileset[66]
+            @tree_tile = @tileset[62]
+            @torch_tile = @tileset[61]
+            @one_way_tile = @tileset[29]
+
+            @red_wall_se = @winter_se
+            @red_wall_sw = @winter_sw
+            @red_wall_nw = @winter_nw 
+            @red_wall_ne = @winter_ne
+        elsif @level == 3
+            @blue_brick = @tileset[1]
             @red_wall = @tileset[14]
             @yellow_dot = @tileset[18]
             @green_dot = @tileset[19]
             @player_tile = @tileset[81]
-            @goal_tile = @tileset[21]
-            @fire_transition_tile = @tileset[66]
+            @goal_tile = @tileset[37]
+            @fire_transition_tile = @tileset[21]
             @tree_tile = @tileset[63]
             @torch_tile = @tileset[47]
             @one_way_tile = @tileset[29]
+
+            @red_wall_se = @winter_se
+            @red_wall_sw = @winter_sw
+            @red_wall_nw = @winter_nw 
+            @red_wall_ne = @winter_ne
         end
     end 
 
@@ -136,7 +162,9 @@ class BricksDisplay < Widget
         @player.set_absolute_position(level_config[:player_x], level_config[:player_y])
         @ball.set_absolute_position(level_config[:ball_x], level_config[:ball_y])
         @ball.start_move_in_direction(DEG_90 - 0.2)
-
+        if @level == 3
+            @aim_radians = DEG_135 
+        end
         if @play_again_button 
             remove_child(@play_again_button)
         end
@@ -162,7 +190,7 @@ class BricksDisplay < Widget
         if @progress_bar.is_done
             if @update_fire_after_next_player_hit and @ball.y < @player.y - 36
                 @fire_level = @fire_level - 1
-                (1..44).each do |n|
+                (1..48).each do |n|
                     #info("Setting tile #{n}, #{@fire_level} to fire tile")
                     @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
                 end
@@ -212,7 +240,9 @@ class BricksDisplay < Widget
             elsif @launch_countdown < 240
                 if @level == 1
                     @launch_text = "Get to the green exit"
-                else 
+                elsif @level == 2
+                    @launch_text = "Get to the yellow exit"
+                elsif @level == 3
                     @launch_text = "Get to the blue exit"
                 end
                 @launch_x = 100
