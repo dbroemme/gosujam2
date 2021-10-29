@@ -475,6 +475,7 @@ module RdiaGames
         attr_accessor :grid_height 
         attr_accessor :tiles
         attr_accessor :scale
+        attr_accessor :display_grid
 
         def initialize(x, y, tile_size, grid_width, grid_height, args = {})
             @scale = 1
@@ -491,6 +492,7 @@ module RdiaGames
                 @gui_theme = args[ARG_THEME]
             end
             clear_tiles
+            @display_grid = false
         end
 
         def clear_tiles
@@ -502,8 +504,32 @@ module RdiaGames
         end
 
         def grid_to_relative_pixel(val)
+            # TODO Doesn't this need to factor in scale
+            # val * (@tile_size * @scale)
             val * @tile_size
         end
+
+        def determine_grid_x(pixel_x)
+            # TODO handle scrolling? Right now we are assuming that the
+            # visible area is static, and we don't need to consider
+            # where the camera is for this component.
+            delta_x = pixel_x - @x 
+            tile_x = (delta_x / @tile_size).to_i
+            tile_x   
+        end
+
+        def determine_grid_y(pixel_y)
+            # TODO handle scrolling? Right now we are assuming that the
+            # visible area is static, and we don't need to consider
+            # where the camera is for this component.
+            delta_y = pixel_y - @y 
+            tile_y = (delta_y / @tile_size).to_i       
+            tile_y
+        end
+
+        def get_tile(tile_x, tile_y)
+            @tiles[tile_x][tile_y]
+        end 
 
         def set_tile(tile_x, tile_y, widget)
             if tile_x < 0 or tile_y < 0
@@ -540,6 +566,36 @@ module RdiaGames
                         img.draw
                     end 
                 end 
+            end
+            if @display_grid
+                display_grid_lines
+            end
+        end
+
+        def display_grid_lines
+            grid_widgets = []
+
+            first_x = relative_x(grid_to_relative_pixel(0))
+            last_x = relative_x(grid_to_relative_pixel(@grid_width))
+            first_y = relative_y(grid_to_relative_pixel(0))
+            last_y = relative_y(grid_to_relative_pixel(@grid_height))
+
+            (0..@grid_width).each do |grid_x|
+                dx = relative_x(grid_to_relative_pixel(grid_x))
+                line = Line.new(dx, first_y, dx, last_y, COLOR_LIGHT_GRAY)
+                line.base_z = 10
+                grid_widgets << line
+            end
+
+            (0..@grid_height).each do |grid_y|
+                dy = relative_y(grid_to_relative_pixel(grid_y))
+                line = Line.new(first_x, dy, last_x, dy, COLOR_LIGHT_GRAY)
+                line.base_z = 10
+                grid_widgets << line
+            end
+
+            grid_widgets.each do |gw|
+                gw.draw
             end
         end
 
