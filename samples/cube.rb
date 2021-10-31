@@ -44,6 +44,13 @@ class CubeRender < RdiaGame
         register_hold_down_key(Gosu::KbUp)
         register_hold_down_key(Gosu::KbDown)
 
+        register_hold_down_key(Gosu::KbF)
+        register_hold_down_key(Gosu::KbT)
+        register_hold_down_key(Gosu::KbH)
+        register_hold_down_key(Gosu::KbG)
+        register_hold_down_key(Gosu::KbV)
+        register_hold_down_key(Gosu::KbB)
+
     end 
 end
 
@@ -54,19 +61,26 @@ class CubeRenderDisplay < Widget
         super(0, 0, GAME_WIDTH, GAME_HEIGHT)
         disable_border
 
-        @center_x = 600   # this is what the buttons will cause to move
-        @center_y = 300
+        @offset_x = 600
+        @offset_y = 300
+
+        @move_x = 0
+        @move_y = 0
+
+        @center_x = 0
+        @center_y = 0
         @center_z = 100
         @radius = 100
+        @angle_x = 0
+        @angle_y = 0
+        @angle_z = 0
         @speed = 5
-        @rotation_angle = 0.0
         @mode = MODE_ISOMETRIC
-        @scale = 1
-        @scaling_speed = 0.0005
-
+        @scale = 0.5
+        @scaling_speed = 0.05
         @camera_x = 0
         @camera_y = 0
-        @camera_z = 300   # if this started at zero, we would be inside the cube
+        @camera_z = 500   # if this started at zero, we would be inside the cube
 
         @current_mouse_text = Text.new(10, 700, "0, 0")
         add_child(@current_mouse_text)
@@ -75,65 +89,43 @@ class CubeRenderDisplay < Widget
         @current_mode_text = Text.new(10, 640, "Mode: #{@mode}")
         add_child(@current_mode_text)
 
-        # TODO I don't have a recalc from origin. Its essentially the initialization below
-        #      Everything else is relative from where we are, which is anchored by the center point
-        # TODO We should draw the center point, to give better perspective.
-        # TODO even the initial points, now we should do a calculation because we are 
-        # including the camera in it as well
-        @three_d_points = [] 
-        @a = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + @radius)
-        @b = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z + @radius)
-        @c = ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z + @radius)
-        @d = ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z + @radius)
-        @e = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z - @radius)
-        @f = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z - @radius)
-        @g = ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z - @radius)
-        @h = ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z - @radius)
-        @three_d_points << @a
-        @three_d_points << @b 
-        @three_d_points << @c 
-        @three_d_points << @d 
-        @three_d_points << @e 
-        @three_d_points << @f 
-        @three_d_points << @g 
-        @three_d_points << @h
-
-        # adjust for initial camera. The initial x and y cameras are zero
-        #@three_d_points.each do |three_d_point|
-        #    three_d_point.z = three_d_point.z + @camera_z 
-        #end
-
-        #add_button("Use Eraser", 940, 680, 120) do
-        #    TODO
-        #    WidgetResult.new(false)
-        #end
+        @model_points = []
+        @model_points << ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z + @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z + @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z + @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z - @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z - @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z - @radius + @camera_z)
+        @model_points << ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z - @radius + @camera_z)
     end 
 
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
-    def rotate_cube(angle_x, angle_y, angle_z)
-        @new_3d_points = [] 
-        @three_d_points.each do |three_d_point|
+    def calc_points
+        @three_d_points = [] 
+
+        @model_points.each do |model_point|
             # XD = X(N)-PIVX
             # YD = Y(N)-PIVY
             # ZD = Z(N)-PIVZ
-            xd = three_d_point.x - @center_x
-            yd = three_d_point.y - @center_y
-            zd = three_d_point.z - @center_z
+            xd = model_point.x - @center_x
+            yd = model_point.y - @center_y
+            zd = model_point.z - @center_z
 
             # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
             # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-            zx = (xd * Math.cos(angle_z)) - (yd * Math.sin(angle_z)) - xd
-            zy = (xd * Math.sin(angle_z)) + (yd * Math.cos(angle_z)) - yd
+            zx = (xd * Math.cos(@angle_z)) - (yd * Math.sin(@angle_z)) - xd
+            zy = (xd * Math.sin(@angle_z)) + (yd * Math.cos(@angle_z)) - yd
 
             # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
             # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
-            yx = ((xd + zx) * Math.cos(angle_y)) - (zd * Math.sin(angle_y)) - (xd + zx)
-            yz = ((xd + zx) * Math.sin(angle_y)) + (zd * Math.cos(angle_y)) - zd
+            yx = ((xd + zx) * Math.cos(@angle_y)) - (zd * Math.sin(@angle_y)) - (xd + zx)
+            yz = ((xd + zx) * Math.sin(@angle_y)) + (zd * Math.cos(@angle_y)) - zd
 
             # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
             # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
-            xy = ((yd + zy) * Math.cos(angle_x)) - ((zd + yz) * Math.sin(angle_x)) - (yd + zy)
-            xz = ((yd + zy) * Math.sin(angle_x)) + ((zd + yz) * Math.cos(angle_x)) - (zd + yz)
+            xy = ((yd + zy) * Math.cos(@angle_x)) - ((zd + yz) * Math.sin(@angle_x)) - (yd + zy)
+            xz = ((yd + zy) * Math.sin(@angle_x)) + ((zd + yz) * Math.cos(@angle_x)) - (zd + yz)
 
             # XROTOFFSET = YX+ZX
             # YROTOFFSET = ZY+XY
@@ -151,29 +143,35 @@ class CubeRenderDisplay < Widget
             #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
             #End If
 
-            @new_3d_points << ThreeDPoint.new(three_d_point.x + x_rot_offset,
-                                              three_d_point.y + y_rot_offset,
-                                              three_d_point.z + z_rot_offset)
+            if @mode == MODE_ISOMETRIC
+                x = ((model_point.x + x_rot_offset + @camera_x) / @scale) + @move_x 
+                y = ((model_point.y + y_rot_offset + @camera_y) / @scale) + @move_y
+                z = model_point.z
+            else 
+                z = model_point.z + z_rot_offset + @camera_z
+                x = (((model_point.x + x_rot_offset + @camera_x) / z) / @scale) + @move_x 
+                y = (((model_point.y + y_rot_offset + @camera_y) / z) / @scale) + @move_y
+            end 
+
+            @three_d_points << ThreeDPoint.new(x, y, z) 
         end
-        @a = @new_3d_points[0]
-        @b = @new_3d_points[1]
-        @c = @new_3d_points[2]
-        @d = @new_3d_points[3]
-        @e = @new_3d_points[4]
-        @f = @new_3d_points[5]
-        @g = @new_3d_points[6]
-        @h = @new_3d_points[7]
-        @three_d_points = @new_3d_points
+
+        @a = @three_d_points[0]
+        @b = @three_d_points[1]
+        @c = @three_d_points[2]
+        @d = @three_d_points[3]
+        @e = @three_d_points[4]
+        @f = @three_d_points[5]
+        @g = @three_d_points[6]
+        @h = @three_d_points[7]
     end
 
-    def render 
-        #draw_square(@square_points)
-        draw_cube
-    end 
+    def render
+        Gosu.translate(@offset_x, @offset_y) do
+            draw_cube
+        end 
+    end
 
-    #
-    # 3D Cube
-    #
     def draw_cube 
         draw_square([@a, @b, @c, @d])
         draw_square([@a, @e, @h, @d])
@@ -182,7 +180,7 @@ class CubeRenderDisplay < Widget
         draw_square([@e, @f, @g, @h])
         draw_square([@a, @e, @f, @b])
         draw_square([@d, @h, @g, @c])
-    end
+    end 
 
     def draw_square(points)
         (0..3).each do |n|
@@ -193,7 +191,6 @@ class CubeRenderDisplay < Widget
             end 
         end
     end
-
     def draw_line(points, index1, index2)
         point1 = points[index1]
         point2 = points[index2]
@@ -201,62 +198,21 @@ class CubeRenderDisplay < Widget
     end
 
     def move_left 
-        #adjust_x(-@speed)
-        @center_x = @center_x - @speed
-        three_d_adjust_x(-@speed)
+        @move_x = @move_x - @speed
     end 
     def move_right 
-        #adjust_x(@speed)
-        @center_x = @center_x + @speed
-        three_d_adjust_x(@speed)
+        @move_x = @move_x + @speed
     end 
     def move_up 
-        #adjust_y(-@speed)
-        @center_y = @center_y - @speed
-        three_d_adjust_y(-@speed)
+        @move_y = @move_y - @speed
     end 
     def move_down
-        #adjust_y(@speed)
-        @center_y = @center_y + @speed
-        three_d_adjust_y(@speed)
+        @move_y = @move_y + @speed
     end 
-    def three_d_adjust_x(amount)
-        @three_d_points.each do |three_d_point|
-            three_d_point.x = three_d_point.x + amount 
-        end
-    end
-    def three_d_adjust_y(amount)
-        @three_d_points.each do |three_d_point|
-            three_d_point.y = three_d_point.y + amount 
-        end
-    end
 
-    def change_scale(adjustment)
-        @new_3d_points = [] 
-        @three_d_points.each do |three_d_point|
-            xd = three_d_point.x - @center_x
-            yd = three_d_point.y - @center_y
-            zd = three_d_point.z - @center_z
-
-            delta_x = xd * adjustment
-            delta_y = yd * adjustment
-            delta_z = zd * adjustment
-            @new_3d_points << ThreeDPoint.new(three_d_point.x + delta_x,
-                                              three_d_point.y + delta_y,
-                                              three_d_point.z + delta_z)
-        end
-        @a = @new_3d_points[0]
-        @b = @new_3d_points[1]
-        @c = @new_3d_points[2]
-        @d = @new_3d_points[3]
-        @e = @new_3d_points[4]
-        @f = @new_3d_points[5]
-        @g = @new_3d_points[6]
-        @h = @new_3d_points[7]
-        @three_d_points = @new_3d_points
-    end
 
     def handle_update update_count, mouse_x, mouse_y
+        calc_points
         @current_mouse_text.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @current_scale_text.label = "Scale: #{@scale}"
         @current_mode_text.label = "Mode: #{@mode}"
@@ -271,27 +227,31 @@ class CubeRenderDisplay < Widget
             move_up
         elsif id == Gosu::KbS
             move_down
-        elsif id == Gosu::KbP or id == Gosu::KbO
-            #rotate_square
-            rotate_cube(0.05, 0, 0.05)
         elsif id == Gosu::KbJ
-            rotate_cube(0.05, 0, 0)
+            @angle_x = @angle_x + 0.05
         elsif id == Gosu::KbK
-            rotate_cube(0, 0.05, 0)
+            @angle_y = @angle_y + 0.05
         elsif id == Gosu::KbL
-            rotate_cube(0, 0, 0.05)
+            @angle_z = @angle_z + 0.05
         elsif id == Gosu::KbU
-            rotate_cube(-0.05, 0, 0)
+            @angle_x = @angle_x - 0.05
         elsif id == Gosu::KbI
-            rotate_cube(0, -0.05, 0)
+            @angle_y = @angle_y - 0.05
         elsif id == Gosu::KbO
-            rotate_cube(0, 0, -0.05)
-        elsif id == Gosu::KbUp
-            @scale = @scale + 0.1
-            change_scale(0.1)
-        elsif id == Gosu::KbDown
-            @scale = @scale - 0.1
-            change_scale(-0.1)
+            @angle_z = @angle_z - 0.05
+
+        elsif id == Gosu::KbF
+            @camera_x = @camera_x - @speed
+        elsif id == Gosu::KbT
+            @camera_y = @camera_y - @speed
+        elsif id == Gosu::KbH
+            @camera_x = @camera_x + @speed
+        elsif id == Gosu::KbG
+            @camera_y = @camera_y + @speed
+        elsif id == Gosu::KbV
+            @camera_z = @camera_z - @speed
+        elsif id == Gosu::KbB
+            @camera_z = @camera_z + @speed
         end
     end
 
@@ -304,10 +264,6 @@ class CubeRenderDisplay < Widget
             @center_y = @center_y - @speed
         elsif id == Gosu::KbS
             @center_y = @center_y + @speed
-        elsif id == Gosu::KbP
-            @rotation_angle = 0.05
-        elsif id == Gosu::KbO
-            @rotation_angle = -0.05
         elsif id == Gosu::KbSpace
             if @mode == MODE_ISOMETRIC 
                 @mode = MODE_REAL_THREE_D 
@@ -316,12 +272,33 @@ class CubeRenderDisplay < Widget
             end
         elsif id == Gosu::KbUp
             @scale = @scale + @scaling_speed
-            change_scale(@scaling_speed)
         elsif id == Gosu::KbDown
-            @scale = @scale - @scaling_speed
-            change_scale(-@scaling_speed)
-        elsif id == Gosu::KbR 
-            rotate_cube(0, 0, 0)
+            if @scale > 0.3
+                @scale = @scale - 0.05
+            else 
+                @scale = @scale - 0.01
+            end
+            if @scale < 0 
+                @scale = 0.001
+            end
+        elsif id == Gosu::KbF
+            @camera_x = @camera_x - @speed
+        elsif id == Gosu::KbT
+            @camera_y = @camera_y - @speed
+        elsif id == Gosu::KbH
+            @camera_x = @camera_x + @speed
+        elsif id == Gosu::KbG
+            @camera_y = @camera_y + @speed
+        elsif id == Gosu::KbV
+            @camera_z = @camera_z - @speed
+        elsif id == Gosu::KbB
+            @camera_z = @camera_z + @speed
+        elsif id == Gosu::KbR
+            @mode = MODE_REAL_THREE_D 
+            @scale = 0.001
+            @angle_x = 0
+            @angle_y = 0
+            @angle_z = 0
         end
     end
 
@@ -336,40 +313,6 @@ class CubeRenderDisplay < Widget
     def handle_mouse_up mouse_x, mouse_y
         @mouse_dragging = false
     end
-
-    #
-    # Old, unused square methods
-    #
-    #def adjust_x(amount)
-    #    (0..3).each do |n|
-    #        cube_point = @square_points[n]
-    #        cube_point.x = cube_point.x + amount 
-    #    end
-    #end
-    #def adjust_y(amount)
-    #    (0..3).each do |n|
-    #        cube_point = @square_points[n]
-    #        cube_point.y = cube_point.y + amount 
-    #    end
-    #end
-    #def rotate_square
-    #    @new_square_points = [] 
-    #    (0..3).each do |n|
-    #        cube_point = @square_points[n]
-    #        # XD = X(N)-PIVX
-    #        # YD = Y(N)-PIVY
-    #        xd = cube_point.x - @center_x
-    #        yd = cube_point.y - @center_y
-    #        # XROTOFFSET = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
-    #        # YROTOFFSET = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-    #        x_rot_offset = (xd * Math.cos(@rotation_angle)) - (yd * Math.sin(@rotation_angle)) - xd
-    #        y_rot_offset = (xd * Math.sin(@rotation_angle)) + (yd * Math.cos(@rotation_angle)) - yd
-    #        @new_square_points << Point.new(cube_point.x + x_rot_offset, cube_point.y + y_rot_offset)
-    #    end
-    #    @square_points = @new_square_points
-    #end
-
-
 end
 
 CubeRender.new.show
