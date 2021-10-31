@@ -491,7 +491,6 @@ class BricksDisplay < Widget
             end
             y = y + 16
         end
-        #OutOfBounds.new(@fire_transition_tile))
 
         if @ball.is_stopped and @game_mode == RDIA_MODE_PREPARE 
             # Draw the aim directional element

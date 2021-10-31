@@ -26,7 +26,7 @@ end
 
 class CubeRender < RdiaGame
     def initialize
-        super(GAME_WIDTH, GAME_HEIGHT, "TileEditor", CubeRenderDisplay.new)
+        super(GAME_WIDTH, GAME_HEIGHT, "Cube Render", CubeRenderDisplay.new)
         # movement left, right, up, down
         register_hold_down_key(Gosu::KbA)    
         register_hold_down_key(Gosu::KbD)    
@@ -88,6 +88,12 @@ class CubeRenderDisplay < Widget
         add_child(@current_scale_text)
         @current_mode_text = Text.new(10, 640, "Mode: #{@mode}")
         add_child(@current_mode_text)
+
+        @camera_text = Text.new(10, 610, "Camera: #{@camera_x}, #{@camera_y}, #{@camera_z}")
+        add_child(@camera_text)
+        @location_text = Text.new(10, 580, "Location: #{@move_x}, #{@move_y}, #{@center_z}")
+        add_child(@location_text)
+
 
         @model_points = []
         @model_points << ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + @radius + @camera_z)
@@ -216,6 +222,9 @@ class CubeRenderDisplay < Widget
         @current_mouse_text.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @current_scale_text.label = "Scale: #{@scale}"
         @current_mode_text.label = "Mode: #{@mode}"
+
+        @camera_text.label = "Camera: #{@camera_x}, #{@camera_y}, #{@camera_z}"
+        @location_text.label = "Location: #{@move_x}, #{@move_y}, #{@center_z}"
     end
 
     def handle_key_held_down id, mouse_x, mouse_y
