@@ -9,8 +9,8 @@ include RdiaGames
 GAME_WIDTH = 1280
 GAME_HEIGHT = 720
 
-MODE_ISOMETRIC = 0
-MODE_REAL_THREE_D = 1
+MODE_ISOMETRIC = "iso"
+MODE_REAL_THREE_D = "real3d"
 
 class ThreeDPoint
     attr_accessor :x
@@ -64,17 +64,22 @@ class CubeRenderDisplay < Widget
         @scale = 1
         @scaling_speed = 0.0005
 
+        @camera_x = 0
+        @camera_y = 0
+        @camera_z = 300   # if this started at zero, we would be inside the cube
+
         @current_mouse_text = Text.new(10, 700, "0, 0")
         add_child(@current_mouse_text)
         @current_scale_text = Text.new(10, 670, "Scale: 1")
         add_child(@current_scale_text)
+        @current_mode_text = Text.new(10, 640, "Mode: #{@mode}")
+        add_child(@current_mode_text)
 
-        #@square_points = [] 
-        #@square_points << Point.new(@center_x - @radius, @center_y - @radius)
-        #@square_points << Point.new(@center_x + @radius, @center_y - @radius)
-        #@square_points << Point.new(@center_x + @radius, @center_y + @radius)
-        #@square_points << Point.new(@center_x - @radius, @center_y + @radius)
-
+        # TODO I don't have a recalc from origin. Its essentially the initialization below
+        #      Everything else is relative from where we are, which is anchored by the center point
+        # TODO We should draw the center point, to give better perspective.
+        # TODO even the initial points, now we should do a calculation because we are 
+        # including the camera in it as well
         @three_d_points = [] 
         @a = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + @radius)
         @b = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z + @radius)
@@ -93,19 +98,18 @@ class CubeRenderDisplay < Widget
         @three_d_points << @g 
         @three_d_points << @h
 
-        #add_text("Current Tile:", 900, 630)
+        # adjust for initial camera. The initial x and y cameras are zero
+        #@three_d_points.each do |three_d_point|
+        #    three_d_point.z = three_d_point.z + @camera_z 
+        #end
+
         #add_button("Use Eraser", 940, 680, 120) do
-        #    if @use_eraser 
-        #        @use_eraser = false 
-        #    else 
-        #        @use_eraser = true
-        #        WidgetResult.new(false)
-        #    end
+        #    TODO
+        #    WidgetResult.new(false)
         #end
     end 
 
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
-
     def rotate_cube(angle_x, angle_y, angle_z)
         @new_3d_points = [] 
         @three_d_points.each do |three_d_point|
@@ -137,6 +141,15 @@ class CubeRenderDisplay < Widget
             x_rot_offset = yx + zx
             y_rot_offset = zy + xy 
             z_rot_offset = xz + yz
+
+            #If MODE=0
+            #    X = [ X(N) + XROTOFFSET + CAMX ] /SCALE +MOVEX
+            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /SCALE +MOVEY
+            #Else
+            #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
+            #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
+            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
+            #End If
 
             @new_3d_points << ThreeDPoint.new(three_d_point.x + x_rot_offset,
                                               three_d_point.y + y_rot_offset,
@@ -246,6 +259,7 @@ class CubeRenderDisplay < Widget
     def handle_update update_count, mouse_x, mouse_y
         @current_mouse_text.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @current_scale_text.label = "Scale: #{@scale}"
+        @current_mode_text.label = "Mode: #{@mode}"
     end
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -297,10 +311,8 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbSpace
             if @mode == MODE_ISOMETRIC 
                 @mode = MODE_REAL_THREE_D 
-                # TODO SCALE=SCALE/CAMZ
             else 
                 @mode = MODE_ISOMETRIC
-                # TODO SCALE=SCALE*CAMZ
             end
         elsif id == Gosu::KbUp
             @scale = @scale + @scaling_speed
@@ -308,6 +320,8 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbDown
             @scale = @scale - @scaling_speed
             change_scale(-@scaling_speed)
+        elsif id == Gosu::KbR 
+            rotate_cube(0, 0, 0)
         end
     end
 

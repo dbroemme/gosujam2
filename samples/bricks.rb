@@ -28,7 +28,7 @@ class BricksDisplay < Widget
         @score = 0
         @level = 1
         @lives = 3
-        @fire_level = 36
+        @fire_level = 676
         @update_fire_after_next_player_hit = false 
         @launch_font = Gosu::Font.new(56, {:name => File.join(File.dirname(File.dirname(__FILE__)), 'media', "armalite_rifle.ttf")})
 
@@ -176,7 +176,7 @@ class BricksDisplay < Widget
         @progress_bar.reset
         @grid.clear_tiles
         @level_text.label = "#{@level}"
-        @fire_level = 36
+        @fire_level = 676
         @one_way_doors = []
         @on_one_way_door = false
         set_tiles
@@ -191,19 +191,26 @@ class BricksDisplay < Widget
     end 
 
     def handle_update update_count, mouse_x, mouse_y
-        if @progress_bar.is_done
-            if @update_fire_after_next_player_hit and @ball.y < @player.y - 36
-                @fire_level = @fire_level - 1
-                (1..48).each do |n|
-                    #info("Setting tile #{n}, #{@fire_level} to fire tile")
-                    @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
-                end
-                @player.y = @player.y - 16
-                @progress_bar.reset
-                @progress_bar.start 
-                @update_fire_after_next_player_hit = false 
-            end
+        if @game_mode == RDIA_MODE_PLAY and (update_count % 10 == 0)
+            @fire_level = @fire_level - 1
         end
+        if @game_mode == RDIA_MODE_PLAY and (update_count % 100 == 0)
+            # TODO add back only do this after a paddle hit (see logic below)
+            @player.y = @player.y - 10
+        end
+        #if @progress_bar.is_done
+            #if @update_fire_after_next_player_hit and @ball.y < @player.y - 36
+            #    @fire_level = @fire_level - 1
+                #(1..48).each do |n|
+                    #info("Setting tile #{n}, #{@fire_level} to fire tile")
+                #    @grid.set_tile(n, @fire_level, OutOfBounds.new(@fire_transition_tile))
+                #end
+            #    @player.y = @player.y - 16
+            #    @progress_bar.reset
+            #    @progress_bar.start 
+            #    @update_fire_after_next_player_hit = false 
+            #end
+        #end
 
         if @player.overlaps_with(@ball) or @ball.overlaps_with(@player)
             @ball.last_element_bounce = @player.object_id
@@ -472,6 +479,20 @@ class BricksDisplay < Widget
     end 
 
     def render
+        # Draw the fire from fire_level all the way down
+        y = @fire_level
+        while y < @grid.bottom_edge 
+            x = @grid.x
+            while x < @grid.right_edge
+                fire_object = ImageWidget.new(x, y, @fire_transition_tile)
+                fire_object.base_z = 10
+                fire_object.draw
+                x = x + 16
+            end
+            y = y + 16
+        end
+        #OutOfBounds.new(@fire_transition_tile))
+
         if @ball.is_stopped and @game_mode == RDIA_MODE_PREPARE 
             # Draw the aim directional element
             aim_size = 6
