@@ -609,18 +609,18 @@ class BricksDisplay < Widget
         dsl.each do |line|
             index = 0
             while index < line.size
-                char = line[index]
+                char = line[index..index+1].strip
                 #puts "#{grid_x},#{grid_y}  =  #{char}"
                 img = nil
                 if char == "B"
                     img = Brick.new(@blue_brick)
-                elsif char == "W"
+                elsif char == "W" or char == "5"
                     img = Wall.new(@red_wall)
-                elsif char == "Y"
+                elsif char == "Y" or char == "18"
                     img = Dot.new(@yellow_dot)
-                elsif char == "G"
+                elsif char == "G" or char == "19"
                     img = Dot.new(@green_dot)
-                elsif char == "F"
+                elsif char == "F" or char == "66"
                     img = OutOfBounds.new(@fire_transition_tile)
                 elsif char == "T"
                     img = DiagonalWall.new(@red_wall_nw, QUAD_NW)
@@ -630,7 +630,7 @@ class BricksDisplay < Widget
                     img = DiagonalWall.new(@red_wall_sw, QUAD_SW)
                 elsif char == "Z"
                     img = DiagonalWall.new(@red_wall_se, QUAD_SE)
-                elsif char == "E"
+                elsif char == "E" or char == "64"
                     img = GoalArea.new(@goal_tile)
                 elsif char == "N"
                     img = BackgroundArea.new(@tree_tile)
@@ -639,6 +639,9 @@ class BricksDisplay < Widget
                 elsif char == "O"
                     img = OneWayDoor.new(@one_way_tile, @red_wall)
                     @one_way_doors << img
+                elsif char.match?(/[[:digit:]]/)
+                    tile_index = char.to_i
+                    img = BackgroundArea.new(@tileset[tile_index])
                 end
                 
                 if img.nil?
@@ -648,7 +651,7 @@ class BricksDisplay < Widget
                 end
 
                 grid_x = grid_x + 1
-                index = index + 1
+                index = index + 2
             end
             grid_x = 0
             grid_y = grid_y + 1

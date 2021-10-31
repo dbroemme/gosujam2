@@ -73,6 +73,11 @@ class TileEditorDisplay < Widget
         # highlight the key tiles we use
         # the rest are background
         add_shadow_box(5)
+        add_shadow_box(18)
+        add_shadow_box(19)
+        add_shadow_box(38)
+        add_shadow_box(59)
+        add_shadow_box(64)
         add_shadow_box(66)
     end 
 
