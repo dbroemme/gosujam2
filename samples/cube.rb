@@ -9,6 +9,9 @@ include RdiaGames
 GAME_WIDTH = 1280
 GAME_HEIGHT = 720
 
+MODE_ISOMETRIC = 0
+MODE_REAL_THREE_D = 1
+
 class ThreeDPoint
     attr_accessor :x
     attr_accessor :y 
@@ -24,6 +27,7 @@ end
 class CubeRender < RdiaGame
     def initialize
         super(GAME_WIDTH, GAME_HEIGHT, "TileEditor", CubeRenderDisplay.new)
+        # movement left, right, up, down
         register_hold_down_key(Gosu::KbA)    
         register_hold_down_key(Gosu::KbD)    
         register_hold_down_key(Gosu::KbW)    
@@ -36,6 +40,9 @@ class CubeRender < RdiaGame
         register_hold_down_key(Gosu::KbU)
         register_hold_down_key(Gosu::KbI)
         register_hold_down_key(Gosu::KbO)
+        # scaling
+        register_hold_down_key(Gosu::KbUp)
+        register_hold_down_key(Gosu::KbDown)
 
     end 
 end
@@ -53,36 +60,30 @@ class CubeRenderDisplay < Widget
         @radius = 100
         @speed = 5
         @rotation_angle = 0.0
-        @draw_at_angle = false
-
-        # center point is the pivot point
-        # XD = X(N)-PIVX
-        # YD = Y(N)-PIVY
-
-        # XROTOFFSET = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
-        # YROTOFFSET = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-
-        
+        @mode = MODE_ISOMETRIC
+        @scale = 1
+        @scaling_speed = 0.0005
 
         @current_mouse_text = Text.new(10, 700, "0, 0")
         add_child(@current_mouse_text)
+        @current_scale_text = Text.new(10, 670, "Scale: 1")
+        add_child(@current_scale_text)
 
-        @square_points = [] 
-        @square_points << Point.new(@center_x - @radius, @center_y - @radius)
-        @square_points << Point.new(@center_x + @radius, @center_y - @radius)
-        @square_points << Point.new(@center_x + @radius, @center_y + @radius)
-        @square_points << Point.new(@center_x - @radius, @center_y + @radius)
+        #@square_points = [] 
+        #@square_points << Point.new(@center_x - @radius, @center_y - @radius)
+        #@square_points << Point.new(@center_x + @radius, @center_y - @radius)
+        #@square_points << Point.new(@center_x + @radius, @center_y + @radius)
+        #@square_points << Point.new(@center_x - @radius, @center_y + @radius)
 
         @three_d_points = [] 
-
-        @a = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + 100)
-        @b = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z + 100)
-        @c = ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z + 100)
-        @d = ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z + 100)
-        @e = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z - 100)
-        @f = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z - 100)
-        @g = ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z - 100)
-        @h = ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z - 100)
+        @a = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + @radius)
+        @b = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z + @radius)
+        @c = ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z + @radius)
+        @d = ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z + @radius)
+        @e = ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z - @radius)
+        @f = ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z - @radius)
+        @g = ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z - @radius)
+        @h = ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z - @radius)
         @three_d_points << @a
         @three_d_points << @b 
         @three_d_points << @c 
@@ -104,22 +105,6 @@ class CubeRenderDisplay < Widget
     end 
 
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
-    def rotate_square
-        @new_square_points = [] 
-        (0..3).each do |n|
-            cube_point = @square_points[n]
-            # XD = X(N)-PIVX
-            # YD = Y(N)-PIVY
-            xd = cube_point.x - @center_x
-            yd = cube_point.y - @center_y
-            # XROTOFFSET = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
-            # YROTOFFSET = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-            x_rot_offset = (xd * Math.cos(@rotation_angle)) - (yd * Math.sin(@rotation_angle)) - xd
-            y_rot_offset = (xd * Math.sin(@rotation_angle)) + (yd * Math.cos(@rotation_angle)) - yd
-            @new_square_points << Point.new(cube_point.x + x_rot_offset, cube_point.y + y_rot_offset)
-        end
-        @square_points = @new_square_points
-    end
 
     def rotate_cube(angle_x, angle_y, angle_z)
         @new_3d_points = [] 
@@ -202,44 +187,26 @@ class CubeRenderDisplay < Widget
         Gosu::draw_line point1.x, point1.y, COLOR_AQUA, point2.x, point2.y, COLOR_AQUA, 10
     end
 
-    def handle_update update_count, mouse_x, mouse_y
-        @current_mouse_text.label = "#{mouse_x}, #{mouse_y}"
-    end
-
     def move_left 
-        adjust_x(-@speed)
+        #adjust_x(-@speed)
         @center_x = @center_x - @speed
         three_d_adjust_x(-@speed)
     end 
     def move_right 
-        adjust_x(@speed)
+        #adjust_x(@speed)
         @center_x = @center_x + @speed
         three_d_adjust_x(@speed)
     end 
     def move_up 
-        adjust_y(-@speed)
+        #adjust_y(-@speed)
         @center_y = @center_y - @speed
         three_d_adjust_y(-@speed)
     end 
     def move_down
-        adjust_y(@speed)
+        #adjust_y(@speed)
         @center_y = @center_y + @speed
         three_d_adjust_y(@speed)
     end 
-
-    def adjust_x(amount)
-        (0..3).each do |n|
-            cube_point = @square_points[n]
-            cube_point.x = cube_point.x + amount 
-        end
-    end
-    def adjust_y(amount)
-        (0..3).each do |n|
-            cube_point = @square_points[n]
-            cube_point.y = cube_point.y + amount 
-        end
-    end
-
     def three_d_adjust_x(amount)
         @three_d_points.each do |three_d_point|
             three_d_point.x = three_d_point.x + amount 
@@ -249,6 +216,36 @@ class CubeRenderDisplay < Widget
         @three_d_points.each do |three_d_point|
             three_d_point.y = three_d_point.y + amount 
         end
+    end
+
+    def change_scale(adjustment)
+        @new_3d_points = [] 
+        @three_d_points.each do |three_d_point|
+            xd = three_d_point.x - @center_x
+            yd = three_d_point.y - @center_y
+            zd = three_d_point.z - @center_z
+
+            delta_x = xd * adjustment
+            delta_y = yd * adjustment
+            delta_z = zd * adjustment
+            @new_3d_points << ThreeDPoint.new(three_d_point.x + delta_x,
+                                              three_d_point.y + delta_y,
+                                              three_d_point.z + delta_z)
+        end
+        @a = @new_3d_points[0]
+        @b = @new_3d_points[1]
+        @c = @new_3d_points[2]
+        @d = @new_3d_points[3]
+        @e = @new_3d_points[4]
+        @f = @new_3d_points[5]
+        @g = @new_3d_points[6]
+        @h = @new_3d_points[7]
+        @three_d_points = @new_3d_points
+    end
+
+    def handle_update update_count, mouse_x, mouse_y
+        @current_mouse_text.label = "Mouse: #{mouse_x}, #{mouse_y}"
+        @current_scale_text.label = "Scale: #{@scale}"
     end
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -261,7 +258,7 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbS
             move_down
         elsif id == Gosu::KbP or id == Gosu::KbO
-            rotate_square
+            #rotate_square
             rotate_cube(0.05, 0, 0.05)
         elsif id == Gosu::KbJ
             rotate_cube(0.05, 0, 0)
@@ -275,6 +272,12 @@ class CubeRenderDisplay < Widget
             rotate_cube(0, -0.05, 0)
         elsif id == Gosu::KbO
             rotate_cube(0, 0, -0.05)
+        elsif id == Gosu::KbUp
+            @scale = @scale + 0.1
+            change_scale(0.1)
+        elsif id == Gosu::KbDown
+            @scale = @scale - 0.1
+            change_scale(-0.1)
         end
     end
 
@@ -291,6 +294,20 @@ class CubeRenderDisplay < Widget
             @rotation_angle = 0.05
         elsif id == Gosu::KbO
             @rotation_angle = -0.05
+        elsif id == Gosu::KbSpace
+            if @mode == MODE_ISOMETRIC 
+                @mode = MODE_REAL_THREE_D 
+                # TODO SCALE=SCALE/CAMZ
+            else 
+                @mode = MODE_ISOMETRIC
+                # TODO SCALE=SCALE*CAMZ
+            end
+        elsif id == Gosu::KbUp
+            @scale = @scale + @scaling_speed
+            change_scale(@scaling_speed)
+        elsif id == Gosu::KbDown
+            @scale = @scale - @scaling_speed
+            change_scale(-@scaling_speed)
         end
     end
 
@@ -305,6 +322,39 @@ class CubeRenderDisplay < Widget
     def handle_mouse_up mouse_x, mouse_y
         @mouse_dragging = false
     end
+
+    #
+    # Old, unused square methods
+    #
+    #def adjust_x(amount)
+    #    (0..3).each do |n|
+    #        cube_point = @square_points[n]
+    #        cube_point.x = cube_point.x + amount 
+    #    end
+    #end
+    #def adjust_y(amount)
+    #    (0..3).each do |n|
+    #        cube_point = @square_points[n]
+    #        cube_point.y = cube_point.y + amount 
+    #    end
+    #end
+    #def rotate_square
+    #    @new_square_points = [] 
+    #    (0..3).each do |n|
+    #        cube_point = @square_points[n]
+    #        # XD = X(N)-PIVX
+    #        # YD = Y(N)-PIVY
+    #        xd = cube_point.x - @center_x
+    #        yd = cube_point.y - @center_y
+    #        # XROTOFFSET = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
+    #        # YROTOFFSET = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
+    #        x_rot_offset = (xd * Math.cos(@rotation_angle)) - (yd * Math.sin(@rotation_angle)) - xd
+    #        y_rot_offset = (xd * Math.sin(@rotation_angle)) + (yd * Math.cos(@rotation_angle)) - yd
+    #        @new_square_points << Point.new(cube_point.x + x_rot_offset, cube_point.y + y_rot_offset)
+    #    end
+    #    @square_points = @new_square_points
+    #end
+
 
 end
 
