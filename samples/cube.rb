@@ -24,12 +24,19 @@ end
 class CubeRender < RdiaGame
     def initialize
         super(GAME_WIDTH, GAME_HEIGHT, "TileEditor", CubeRenderDisplay.new)
-        register_hold_down_key(Gosu::KbA)    # Move left
-        register_hold_down_key(Gosu::KbD)    # Move right
-        register_hold_down_key(Gosu::KbW)    # Move left
-        register_hold_down_key(Gosu::KbS)    # Move left
-        register_hold_down_key(Gosu::KbP)    # Move left
-        register_hold_down_key(Gosu::KbO)    # Move left
+        register_hold_down_key(Gosu::KbA)    
+        register_hold_down_key(Gosu::KbD)    
+        register_hold_down_key(Gosu::KbW)    
+        register_hold_down_key(Gosu::KbS)
+        # rotate forward
+        register_hold_down_key(Gosu::KbJ)
+        register_hold_down_key(Gosu::KbK)
+        register_hold_down_key(Gosu::KbL)
+        # rotate back
+        register_hold_down_key(Gosu::KbU)
+        register_hold_down_key(Gosu::KbI)
+        register_hold_down_key(Gosu::KbO)
+
     end 
 end
 
@@ -149,9 +156,6 @@ class CubeRenderDisplay < Widget
             @new_3d_points << ThreeDPoint.new(three_d_point.x + x_rot_offset,
                                               three_d_point.y + y_rot_offset,
                                               three_d_point.z + z_rot_offset)
-
-           
-            
         end
         @a = @new_3d_points[0]
         @b = @new_3d_points[1]
@@ -259,6 +263,18 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbP or id == Gosu::KbO
             rotate_square
             rotate_cube(0.05, 0, 0.05)
+        elsif id == Gosu::KbJ
+            rotate_cube(0.05, 0, 0)
+        elsif id == Gosu::KbK
+            rotate_cube(0, 0.05, 0)
+        elsif id == Gosu::KbL
+            rotate_cube(0, 0, 0.05)
+        elsif id == Gosu::KbU
+            rotate_cube(-0.05, 0, 0)
+        elsif id == Gosu::KbI
+            rotate_cube(0, -0.05, 0)
+        elsif id == Gosu::KbO
+            rotate_cube(0, 0, -0.05)
         end
     end
 
