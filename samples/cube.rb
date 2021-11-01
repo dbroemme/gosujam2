@@ -61,6 +61,11 @@ class CubeRenderDisplay < Widget
         super(0, 0, GAME_WIDTH, GAME_HEIGHT)
         disable_border
 
+        @x_axis_model_points = [ThreeDPoint.new(-500, 0, 0), ThreeDPoint.new(500, 0, 0)]
+        @y_axis_model_points = [ThreeDPoint.new(0, -500, 0), ThreeDPoint.new(0, 500, 0)]
+        @z_axis_model_points = [ThreeDPoint.new(0, 0, -500), ThreeDPoint.new(0, 0, 500)]
+
+
         @offset_x = 600
         @offset_y = 300
 
@@ -110,59 +115,12 @@ class CubeRenderDisplay < Widget
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
     def calc_points
         @three_d_points = [] 
-
         @model_points.each do |model_point|
-            # XD = X(N)-PIVX
-            # YD = Y(N)-PIVY
-            # ZD = Z(N)-PIVZ
-            xd = model_point.x - @center_x
-            yd = model_point.y - @center_y
-            zd = model_point.z - @center_z
-
-            # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
-            # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-            zx = (xd * Math.cos(@angle_z)) - (yd * Math.sin(@angle_z)) - xd
-            zy = (xd * Math.sin(@angle_z)) + (yd * Math.cos(@angle_z)) - yd
-
-            # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
-            # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
-            yx = ((xd + zx) * Math.cos(@angle_y)) - (zd * Math.sin(@angle_y)) - (xd + zx)
-            yz = ((xd + zx) * Math.sin(@angle_y)) + (zd * Math.cos(@angle_y)) - zd
-
-            # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
-            # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
-            xy = ((yd + zy) * Math.cos(@angle_x)) - ((zd + yz) * Math.sin(@angle_x)) - (yd + zy)
-            xz = ((yd + zy) * Math.sin(@angle_x)) + ((zd + yz) * Math.cos(@angle_x)) - (zd + yz)
-
-            # XROTOFFSET = YX+ZX
-            # YROTOFFSET = ZY+XY
-            # ZROTOFFSET = XZ+YZ 
-            x_rot_offset = yx + zx
-            y_rot_offset = zy + xy 
-            z_rot_offset = xz + yz
-
-            #If MODE=0
-            #    X = [ X(N) + XROTOFFSET + CAMX ] /SCALE +MOVEX
-            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /SCALE +MOVEY
-            #Else
-            #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
-            #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
-            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
-            #End If
-
-            if @mode == MODE_ISOMETRIC
-                x = ((model_point.x + x_rot_offset + @camera_x) / @scale) + @move_x 
-                y = ((model_point.y + y_rot_offset + @camera_y) / @scale) + @move_y
-                z = model_point.z
-            else 
-                z = model_point.z + z_rot_offset + @camera_z
-                x = (((model_point.x + x_rot_offset + @camera_x) / z) / @scale) + @move_x 
-                y = (((model_point.y + y_rot_offset + @camera_y) / z) / @scale) + @move_y
-            end 
-
-            @three_d_points << ThreeDPoint.new(x, y, z) 
-        end
-
+            @three_d_points << calc_point(model_point,
+                                          @scale,
+                                          @angle_x, @angle_y, @angle_z,
+                                          @move_x, @move_y)
+        end 
         @a = @three_d_points[0]
         @b = @three_d_points[1]
         @c = @three_d_points[2]
@@ -171,11 +129,78 @@ class CubeRenderDisplay < Widget
         @f = @three_d_points[5]
         @g = @three_d_points[6]
         @h = @three_d_points[7]
+
+        # Line
+        @line_three_d_points = []
+        @x_axis_model_points.each do |lmp|
+            @line_three_d_points << calc_point(lmp, @scale)
+        end
+        @y_axis_model_points.each do |lmp|
+            @line_three_d_points << calc_point(lmp, @scale)
+        end
+        @z_axis_model_points.each do |lmp|
+            @line_three_d_points << calc_point(lmp, @scale)
+        end
+    end 
+
+    def calc_point(model_point, scale, angle_x = 0, angle_y = 0, angle_z = 0, move_x = 0, move_y = 0)
+        # XD = X(N)-PIVX
+        # YD = Y(N)-PIVY
+        # ZD = Z(N)-PIVZ
+        xd = model_point.x - @center_x
+        yd = model_point.y - @center_y
+        zd = model_point.z - @center_z
+
+        # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
+        # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
+        zx = (xd * Math.cos(angle_z)) - (yd * Math.sin(angle_z)) - xd
+        zy = (xd * Math.sin(angle_z)) + (yd * Math.cos(angle_z)) - yd
+
+        # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
+        # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
+        yx = ((xd + zx) * Math.cos(angle_y)) - (zd * Math.sin(angle_y)) - (xd + zx)
+        yz = ((xd + zx) * Math.sin(angle_y)) + (zd * Math.cos(angle_y)) - zd
+
+        # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
+        # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
+        xy = ((yd + zy) * Math.cos(angle_x)) - ((zd + yz) * Math.sin(angle_x)) - (yd + zy)
+        xz = ((yd + zy) * Math.sin(angle_x)) + ((zd + yz) * Math.cos(angle_x)) - (zd + yz)
+
+        # XROTOFFSET = YX+ZX
+        # YROTOFFSET = ZY+XY
+        # ZROTOFFSET = XZ+YZ 
+        x_rot_offset = yx + zx
+        y_rot_offset = zy + xy 
+        z_rot_offset = xz + yz
+
+        #If MODE=0
+        #    X = [ X(N) + XROTOFFSET + CAMX ] /SCALE +MOVEX
+        #    Y = [ Y(N) + YROTOFFSET + CAMY ] /SCALE +MOVEY
+        #Else
+        #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
+        #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
+        #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
+        #End If
+
+        if @mode == MODE_ISOMETRIC
+            x = ((model_point.x + x_rot_offset + @camera_x) / scale) + move_x 
+            y = ((model_point.y + y_rot_offset + @camera_y) / scale) + move_y
+            z = model_point.z
+        else 
+            z = model_point.z + z_rot_offset + @camera_z
+            x = (((model_point.x + x_rot_offset + @camera_x) / z) / scale) + move_x 
+            y = (((model_point.y + y_rot_offset + @camera_y) / z) / scale) + move_y
+        end 
+
+        ThreeDPoint.new(x, y, z) 
     end
 
     def render
         Gosu.translate(@offset_x, @offset_y) do
             draw_cube
+            draw_line(@line_three_d_points, 0, 1, COLOR_WHITE, 9)
+            draw_line(@line_three_d_points, 2, 3, COLOR_WHITE, 9)
+            draw_line(@line_three_d_points, 4, 5, COLOR_WHITE, 9)
         end 
     end
 
@@ -198,10 +223,10 @@ class CubeRenderDisplay < Widget
             end 
         end
     end
-    def draw_line(points, index1, index2)
+    def draw_line(points, index1, index2, color = COLOR_AQUA, z = 10)
         point1 = points[index1]
         point2 = points[index2]
-        Gosu::draw_line point1.x, point1.y, COLOR_AQUA, point2.x, point2.y, COLOR_AQUA, 10
+        Gosu::draw_line point1.x, point1.y, color, point2.x, point2.y, color, z
     end
 
     def move_left 
