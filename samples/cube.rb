@@ -27,30 +27,30 @@ end
 class CubeRender < RdiaGame
     def initialize
         super(GAME_WIDTH, GAME_HEIGHT, "Cube Render", CubeRenderDisplay.new)
-        # movement left, right, up, down
-        register_hold_down_key(Gosu::KbA)    
-        register_hold_down_key(Gosu::KbD)    
+        register_hold_down_key(Gosu::KbQ)    
         register_hold_down_key(Gosu::KbW)    
-        register_hold_down_key(Gosu::KbS)
-        # rotate forward
-        register_hold_down_key(Gosu::KbJ)
-        register_hold_down_key(Gosu::KbK)
-        register_hold_down_key(Gosu::KbL)
-        # rotate back
+        register_hold_down_key(Gosu::KbE)    
+        register_hold_down_key(Gosu::KbR)
+        register_hold_down_key(Gosu::KbT)
+        register_hold_down_key(Gosu::KbY)
         register_hold_down_key(Gosu::KbU)
         register_hold_down_key(Gosu::KbI)
         register_hold_down_key(Gosu::KbO)
+
+        register_hold_down_key(Gosu::KbA)
+        register_hold_down_key(Gosu::KbS)
+        register_hold_down_key(Gosu::KbD)
+        register_hold_down_key(Gosu::KbF)
+        register_hold_down_key(Gosu::KbG)
+        register_hold_down_key(Gosu::KbH)
+        register_hold_down_key(Gosu::KbJ)
+        register_hold_down_key(Gosu::KbK)
+        register_hold_down_key(Gosu::KbL)
+
         # scaling
         register_hold_down_key(Gosu::KbUp)
         register_hold_down_key(Gosu::KbDown)
-
-        register_hold_down_key(Gosu::KbF)
-        register_hold_down_key(Gosu::KbT)
-        register_hold_down_key(Gosu::KbH)
-        register_hold_down_key(Gosu::KbG)
-        register_hold_down_key(Gosu::KbV)
-        register_hold_down_key(Gosu::KbB)
-
+        
     end 
 end
 
@@ -89,11 +89,6 @@ class CubeRenderDisplay < Widget
         @current_mode_text = Text.new(10, 640, "Mode: #{@mode}")
         add_child(@current_mode_text)
 
-        @camera_text = Text.new(10, 610, "Camera: #{@camera_x}, #{@camera_y}, #{@camera_z}")
-        add_child(@camera_text)
-        @location_text = Text.new(10, 580, "Location: #{@move_x}, #{@move_y}, #{@center_z}")
-        add_child(@location_text)
-
 
         @model_points = []
         @model_points << ThreeDPoint.new(@center_x - @radius, @center_y - @radius, @center_z + @radius + @camera_z)
@@ -104,6 +99,12 @@ class CubeRenderDisplay < Widget
         @model_points << ThreeDPoint.new(@center_x + @radius, @center_y - @radius, @center_z - @radius + @camera_z)
         @model_points << ThreeDPoint.new(@center_x + @radius, @center_y + @radius, @center_z - @radius + @camera_z)
         @model_points << ThreeDPoint.new(@center_x - @radius, @center_y + @radius, @center_z - @radius + @camera_z)
+
+        @camera_text = Text.new(10, 610, "Camera: #{@camera_x}, #{@camera_y}, #{@camera_z}")
+        add_child(@camera_text)
+        @location_text = Text.new(10, 580, "")
+        add_child(@location_text)
+
     end 
 
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
@@ -204,81 +205,139 @@ class CubeRenderDisplay < Widget
     end
 
     def move_left 
-        @move_x = @move_x - @speed
+        @model_points.each do |model_point|
+            model_point.x = model_point.x - 5
+        end
     end 
     def move_right 
-        @move_x = @move_x + @speed
+        @model_points.each do |model_point|
+            model_point.x = model_point.x + 5
+        end
     end 
     def move_up 
-        @move_y = @move_y - @speed
+        @model_points.each do |model_point|
+            model_point.y = model_point.y - 5
+        end
     end 
     def move_down
-        @move_y = @move_y + @speed
+        @model_points.each do |model_point|
+            model_point.y = model_point.y + 5
+        end
     end 
-
+    def move_away
+        @model_points.each do |model_point|
+            model_point.z = model_point.z - 5
+        end
+    end 
+    def move_towards
+        @model_points.each do |model_point|
+            model_point.z = model_point.z + 5
+        end
+    end 
 
     def handle_update update_count, mouse_x, mouse_y
         calc_points
         @current_mouse_text.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @current_scale_text.label = "Scale: #{@scale}"
         @current_mode_text.label = "Mode: #{@mode}"
-
         @camera_text.label = "Camera: #{@camera_x}, #{@camera_y}, #{@camera_z}"
-        @location_text.label = "Location: #{@move_x}, #{@move_y}, #{@center_z}"
+        @location_text.label = location_text 
     end
+
+    def location_text 
+        "Location: #{@a.x.round}, #{@a.y.round}, #{@a.z.round}"
+    end 
 
     def handle_key_held_down id, mouse_x, mouse_y
         if id == Gosu::KbA
             move_left
         elsif id == Gosu::KbD
             move_right
-        elsif id == Gosu::KbW
+        elsif id == Gosu::KbQ
             move_up
-        elsif id == Gosu::KbS
+        elsif id == Gosu::KbE
             move_down
-        elsif id == Gosu::KbJ
-            @angle_x = @angle_x + 0.05
-        elsif id == Gosu::KbK
-            @angle_y = @angle_y + 0.05
-        elsif id == Gosu::KbL
-            @angle_z = @angle_z + 0.05
-        elsif id == Gosu::KbU
-            @angle_x = @angle_x - 0.05
-        elsif id == Gosu::KbI
-            @angle_y = @angle_y - 0.05
-        elsif id == Gosu::KbO
-            @angle_z = @angle_z - 0.05
-
+        elsif id == Gosu::KbW
+            move_away
+        elsif id == Gosu::KbS
+            move_towards
         elsif id == Gosu::KbF
             @camera_x = @camera_x - @speed
-        elsif id == Gosu::KbT
-            @camera_y = @camera_y - @speed
         elsif id == Gosu::KbH
             @camera_x = @camera_x + @speed
-        elsif id == Gosu::KbG
+        elsif id == Gosu::KbR
+            @camera_y = @camera_y - @speed
+        elsif id == Gosu::KbY
             @camera_y = @camera_y + @speed
-        elsif id == Gosu::KbV
+        elsif id == Gosu::KbT
             @camera_z = @camera_z - @speed
-        elsif id == Gosu::KbB
+        elsif id == Gosu::KbG
             @camera_z = @camera_z + @speed
+
+        elsif id == Gosu::KbJ
+            @angle_x = @angle_x - 0.05
+        elsif id == Gosu::KbL
+            @angle_x = @angle_x + 0.05
+        elsif id == Gosu::KbU
+            @angle_y = @angle_y - 0.05
+        elsif id == Gosu::KbO
+            @angle_y = @angle_y + 0.05
+        elsif id == Gosu::KbI
+            @angle_z = @angle_z - 0.05
+        elsif id == Gosu::KbK
+            @angle_z = @angle_z - 0.05
         end
     end
 
     def handle_key_press id, mouse_x, mouse_y
         if id == Gosu::KbA
-            @center_x = @center_x - @speed
+            move_left
         elsif id == Gosu::KbD
-            @center_x = @center_x + @speed
+            move_right
+        elsif id == Gosu::KbQ
+            move_up
+        elsif id == Gosu::KbE
+            move_down
         elsif id == Gosu::KbW
-            @center_y = @center_y - @speed
+            move_away
         elsif id == Gosu::KbS
-            @center_y = @center_y + @speed
+            move_towards
+        elsif id == Gosu::KbF
+            @camera_x = @camera_x - @speed
+        elsif id == Gosu::KbH
+            @camera_x = @camera_x + @speed
+        elsif id == Gosu::KbR
+            @camera_y = @camera_y - @speed
+        elsif id == Gosu::KbY
+            @camera_y = @camera_y + @speed
+        elsif id == Gosu::KbT
+            @camera_z = @camera_z - @speed
+        elsif id == Gosu::KbG
+            @camera_z = @camera_z + @speed
+        elsif id == Gosu::KbJ
+            @angle_x = @angle_x - 0.05
+        elsif id == Gosu::KbL
+            @angle_x = @angle_x + 0.05
+        elsif id == Gosu::KbU
+            @angle_y = @angle_y - 0.05
+        elsif id == Gosu::KbO
+            @angle_y = @angle_y + 0.05
+        elsif id == Gosu::KbI
+            @angle_z = @angle_z - 0.05
+        elsif id == Gosu::KbK
+            @angle_z = @angle_z - 0.05
         elsif id == Gosu::KbSpace
             if @mode == MODE_ISOMETRIC 
                 @mode = MODE_REAL_THREE_D 
             else 
                 @mode = MODE_ISOMETRIC
             end
+        elsif id == Gosu::KbP
+            @mode = MODE_REAL_THREE_D 
+            @scale = 0.001
+            @angle_x = 0
+            @angle_y = 0
+            @angle_z = 0
         elsif id == Gosu::KbUp
             @scale = @scale + @scaling_speed
         elsif id == Gosu::KbDown
@@ -290,24 +349,6 @@ class CubeRenderDisplay < Widget
             if @scale < 0 
                 @scale = 0.001
             end
-        elsif id == Gosu::KbF
-            @camera_x = @camera_x - @speed
-        elsif id == Gosu::KbT
-            @camera_y = @camera_y - @speed
-        elsif id == Gosu::KbH
-            @camera_x = @camera_x + @speed
-        elsif id == Gosu::KbG
-            @camera_y = @camera_y + @speed
-        elsif id == Gosu::KbV
-            @camera_z = @camera_z - @speed
-        elsif id == Gosu::KbB
-            @camera_z = @camera_z + @speed
-        elsif id == Gosu::KbR
-            @mode = MODE_REAL_THREE_D 
-            @scale = 0.001
-            @angle_x = 0
-            @angle_y = 0
-            @angle_z = 0
         end
     end
 
