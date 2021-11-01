@@ -12,6 +12,10 @@ GAME_HEIGHT = 720
 MODE_ISOMETRIC = "iso"
 MODE_REAL_THREE_D = "real3d"
 
+AXIS_BEGIN = -500
+AXIS_END = 500
+CAMERA_Z_START = 800
+
 class ThreeDPoint
     attr_accessor :x
     attr_accessor :y 
@@ -31,12 +35,14 @@ class ThreeDObject
     attr_accessor :angle_y
     attr_accessor :angle_z
     attr_accessor :speed
+    attr_accessor :color
 
-    def initialize 
+    def initialize(color = COLOR_AQUA)
         @move_x = 0     # TODO make public?
         @move_y = 0     # TODO make public?
         clear_points 
         reset_angle_and_scale
+        @color = color
     end 
 
     def clear_points 
@@ -82,13 +88,12 @@ class ThreeDObject
         end
     end 
 
-
     def draw_square(points)
         (0..3).each do |n|
             if n == 3
-                draw_line(points, n, 0)
+                draw_line(points, n, 0, @color)
             else 
-                draw_line(points, n, n + 1)
+                draw_line(points, n, n + 1, @color)
             end 
         end
     end
@@ -163,35 +168,47 @@ class ThreeDObject
 end 
 
 class ThreeDLine < ThreeDObject
-    def initialize(a, b)
-        super()
+    def initialize(a, b, color = COLOR_AQUA)
+        super(color)
         @model_points << a 
         @model_points << b
     end
 
     def render 
-        draw_line(@render_points, 0, 1, COLOR_WHITE, 9)
+        # Darren
+        # If either of the points is behind you, then don't draw it
+        if @model_points[0].z > $camera_z
+            puts "Not displaying line because 0 point z #{@render_points[0].z} > #{$camera_z}"
+        #elsif @model_points[1].z > $camera_z
+        #    puts "Not displaying line because 1 point z #{@render_points[1].z} > #{$camera_z}"
+        else
+            draw_line(@render_points, 0, 1, @color, 9)
+        end
     end 
 end 
 
 class Cube < ThreeDObject
-    def initialize(radius)
+    # The x, y, z coordinates are for the upper left corner
+    def initialize(x, y, z, length)
         super()
-        @radius = radius
+        @x = x 
+        @y = y 
+        @z = z
+        @length = length
         # TODO really we need to add camera values to x and y also, they were just zero to begin
         reset
     end 
 
     def reset 
         reset_angle_and_scale
-        @model_points << ThreeDPoint.new($center_x - @radius, $center_y - @radius, $center_z + @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x + @radius, $center_y - @radius, $center_z + @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x + @radius, $center_y + @radius, $center_z + @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x - @radius, $center_y + @radius, $center_z + @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x - @radius, $center_y - @radius, $center_z - @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x + @radius, $center_y - @radius, $center_z - @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x + @radius, $center_y + @radius, $center_z - @radius + $camera_z)
-        @model_points << ThreeDPoint.new($center_x - @radius, $center_y + @radius, $center_z - @radius + $camera_z)
+        @model_points << ThreeDPoint.new(@x,           @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @length, @y - @length, @z)
+        @model_points << ThreeDPoint.new(@x,           @y - @length, @z)
+        @model_points << ThreeDPoint.new(@x,           @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x + @length, @y - @length, @z + @length)
+        @model_points << ThreeDPoint.new(@x,           @y - @length, @z + @length)
     end
 
     def render 
@@ -258,35 +275,48 @@ class CubeRenderDisplay < Widget
         $center_y = 0
         $center_z = 100
         $camera_x = 0
-        $camera_y = 0
-        $camera_z = 500   # if this started at zero, we would be inside the cube
+        $camera_y = 150
+        $camera_z = CAMERA_Z_START   # If this started at zero, we would be inside the cube
 
         @speed = 5
         @mode = MODE_ISOMETRIC
-        @scale = 0.5
+        @continuous_movement = true
+        #@scale = 0.5
         @scaling_speed = 0.05
 
         # Axis lines
-        @x_axis = ThreeDLine.new(ThreeDPoint.new(-500, 0, 0), ThreeDPoint.new(500, 0, 0))
-        @y_axis = ThreeDLine.new(ThreeDPoint.new(0, -500, 0), ThreeDPoint.new(0, 500, 0))
-        @z_axis = ThreeDLine.new(ThreeDPoint.new(0, 0, -500), ThreeDPoint.new(0, 0, 500))
-        @axis_lines = [@x_axis, @y_axis, @z_axis]
+        @x_axis = ThreeDLine.new(ThreeDPoint.new(-1000, 0, 0), ThreeDPoint.new(1000, 0, 0))
+        @y_axis = ThreeDLine.new(ThreeDPoint.new(0, -AXIS_END, 0), ThreeDPoint.new(0, AXIS_END, 0))
+        @z_axis = ThreeDLine.new(ThreeDPoint.new(0, 0, -AXIS_END), ThreeDPoint.new(0, 0, AXIS_END))
 
         # Our objects
-        @cube = Cube.new(100)
+        @cube = Cube.new(100, 0, 0, 100)
 
         @all_objects = [@cube, @x_axis, @y_axis, @z_axis]
 
-        @current_mouse_text = Text.new(10, 700, "0, 0")
+        # Darren
+        # Floor lines. Floor is y=0, because y is really height
+        x = -1000
+        while x < 1050
+            @all_objects << ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 10000), COLOR_WHITE)
+            x = x + 100
+        end
+        z = -500
+        while z < 550
+            @all_objects << ThreeDLine.new(ThreeDPoint.new(-1000, 0, z), ThreeDPoint.new(1000, 0, z), COLOR_RED)
+            z = z + 100
+        end
+
+        @current_mouse_text = Text.new(10, 130, "0, 0")
         add_child(@current_mouse_text)
-        @current_scale_text = Text.new(10, 670, "Scale: 1")
+        @current_scale_text = Text.new(10, 100, "Scale: 1")
         add_child(@current_scale_text)
-        @current_mode_text = Text.new(10, 640, "Mode: #{@mode}")
+        @current_mode_text = Text.new(10, 70, "Mode: #{@mode}")
         add_child(@current_mode_text)
 
-        @camera_text = Text.new(10, 610, "Camera: #{$camera_x}, #{$camera_y}, #{$camera_z}")
+        @camera_text = Text.new(10, 40, "Camera: #{$camera_x}, #{$camera_y}, #{$camera_z}")
         add_child(@camera_text)
-        @location_text = Text.new(10, 580, "")
+        @location_text = Text.new(10, 10, "")
         add_child(@location_text)
     end 
 
@@ -325,18 +355,16 @@ class CubeRenderDisplay < Widget
     end 
 
     def handle_key_held_down id, mouse_x, mouse_y
-        handle_movement id, mouse_x, mouse_y 
+        if @continuous_movement
+            handle_movement id, mouse_x, mouse_y 
+        end 
     end
 
     def handle_key_press id, mouse_x, mouse_y
-        handle_movement id, mouse_x, mouse_y 
-        #if id == Gosu::KbSpace
-        #    if @mode == MODE_ISOMETRIC 
-        #        @mode = MODE_REAL_THREE_D 
-        #    else 
-        #        @mode = MODE_ISOMETRIC
-        #    end
-        if id == Gosu::KbP
+        handle_movement(id, mouse_x, mouse_y)
+        if id == Gosu::KbSpace 
+            @continuous_movement = !@continuous_movement
+        elsif id == Gosu::KbP
             @cube.clear_points 
             @cube.reset
             modify do |n|
@@ -373,17 +401,17 @@ class CubeRenderDisplay < Widget
             @cube.move_towards
         elsif id == Gosu::KbS
             @cube.move_away
-        elsif id == Gosu::KbF
-            $camera_x = $camera_x - @speed
-        elsif id == Gosu::KbH
+        elsif id == Gosu::KbF                # solid
             $camera_x = $camera_x + @speed
+        elsif id == Gosu::KbH                # solid
+            $camera_x = $camera_x - @speed
         elsif id == Gosu::KbR
             $camera_y = $camera_y - @speed
         elsif id == Gosu::KbY
             $camera_y = $camera_y + @speed
-        elsif id == Gosu::KbT
+        elsif id == Gosu::KbT                # solid
             $camera_z = $camera_z - @speed
-        elsif id == Gosu::KbG
+        elsif id == Gosu::KbG                # solid
             $camera_z = $camera_z + @speed
         elsif id == Gosu::KbJ
             modify do |n|
