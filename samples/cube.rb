@@ -174,16 +174,23 @@ class ThreeDLine < ThreeDObject
         @model_points << b
     end
 
+    def a 
+        @model_points[0]
+    end
+    def b
+        @model_points[1]
+    end
+
     def render 
         # Darren
         # If either of the points is behind you, then don't draw it
-        if @model_points[0].z > $camera_z
-            puts "Not displaying line because 0 point z #{@render_points[0].z} > #{$camera_z}"
+        #if @model_points[0].z > $camera_z
+        #    puts "Not displaying line because 0 point z #{@render_points[0].z} > #{$camera_z}"
         #elsif @model_points[1].z > $camera_z
         #    puts "Not displaying line because 1 point z #{@render_points[1].z} > #{$camera_z}"
-        else
+        #else
             draw_line(@render_points, 0, 1, @color, 9)
-        end
+        #end
     end 
 end 
 
@@ -268,6 +275,9 @@ class CubeRenderDisplay < Widget
         super(0, 0, GAME_WIDTH, GAME_HEIGHT)
         disable_border
 
+        @x_axis_lines = []
+        @z_axis_lines = []
+
         @offset_x = 600
         @offset_y = 300
 
@@ -298,20 +308,24 @@ class CubeRenderDisplay < Widget
         # Floor lines. Floor is y=0, because y is really height
         x = -1000
         while x < 1050
-            @all_objects << ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 10000), COLOR_WHITE)
+            x_axis_line = ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 10000), COLOR_WHITE)
+            @x_axis_lines << x_axis_line
+            @all_objects << x_axis_line
             x = x + 100
         end
         z = -500
-        while z < 550
-            @all_objects << ThreeDLine.new(ThreeDPoint.new(-1000, 0, z), ThreeDPoint.new(1000, 0, z), COLOR_RED)
+        while z < 9010
+            z_axis_line = ThreeDLine.new(ThreeDPoint.new(-1000, 0, z), ThreeDPoint.new(1000, 0, z), COLOR_PINK)
+            @z_axis_lines << z_axis_line
+            @all_objects << z_axis_line
             z = z + 100
         end
 
         @current_mouse_text = Text.new(10, 130, "0, 0")
         add_child(@current_mouse_text)
-        @current_scale_text = Text.new(10, 100, "Scale: 1")
+        @current_scale_text = Text.new(10, 100, objects_text)
         add_child(@current_scale_text)
-        @current_mode_text = Text.new(10, 70, "Mode: #{@mode}")
+        @current_mode_text = Text.new(10, 70, axis_text)
         add_child(@current_mode_text)
 
         @camera_text = Text.new(10, 40, "Camera: #{$camera_x}, #{$camera_y}, #{$camera_z}")
@@ -338,14 +352,20 @@ class CubeRenderDisplay < Widget
             modify do |n|
                 n.render
             end
+            @z_axis_lines.each do |z_axis_line|
+                WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
+            end
         end 
     end
 
     def handle_update update_count, mouse_x, mouse_y
+        @x_axis_lines.each do |x_axis_line|
+            x_axis_line.a.z = -$camera_z + 5
+        end
         calc_points
         @current_mouse_text.label = "Mouse: #{mouse_x}, #{mouse_y}"
-        @current_scale_text.label = "Scale: #{@scale}"
-        @current_mode_text.label = "Mode: #{@mode}"
+        @current_scale_text.label = objects_text
+        @current_mode_text.label = axis_text
         @camera_text.label = "Camera: #{$camera_x}, #{$camera_y}, #{$camera_z}"
         @location_text.label = location_text 
     end
@@ -353,6 +373,14 @@ class CubeRenderDisplay < Widget
     def location_text 
         "Location: #{@cube.model_points[0].x.round}, #{@cube.model_points[0].y.round}, #{@cube.model_points[0].z.round}"
     end 
+
+    def axis_text 
+        "X Axis: #{@x_axis_lines[0].a.z} - #{@x_axis_lines[0].b.z}"
+    end
+
+    def objects_text 
+        "Num objs: #{@all_objects.size}"
+    end
 
     def handle_key_held_down id, mouse_x, mouse_y
         if @continuous_movement
@@ -401,39 +429,41 @@ class CubeRenderDisplay < Widget
             @cube.move_towards
         elsif id == Gosu::KbS
             @cube.move_away
-        elsif id == Gosu::KbF                # solid
+
+        elsif id == Gosu::KbJ                # solid
             $camera_x = $camera_x + @speed
-        elsif id == Gosu::KbH                # solid
+        elsif id == Gosu::KbL                # solid
             $camera_x = $camera_x - @speed
-        elsif id == Gosu::KbR
+        elsif id == Gosu::KbU
             $camera_y = $camera_y - @speed
-        elsif id == Gosu::KbY
+        elsif id == Gosu::KbO
             $camera_y = $camera_y + @speed
-        elsif id == Gosu::KbT                # solid
+        elsif id == Gosu::KbI                # solid
             $camera_z = $camera_z - @speed
-        elsif id == Gosu::KbG                # solid
+        elsif id == Gosu::KbK                # solid
             $camera_z = $camera_z + @speed
-        elsif id == Gosu::KbJ
+
+        elsif id == Gosu::KbF
             modify do |n|
                 n.angle_x = n.angle_x - 0.05
             end
-        elsif id == Gosu::KbL
+        elsif id == Gosu::KbH
             modify do |n|
                 n.angle_x = n.angle_x + 0.05
             end
-        elsif id == Gosu::KbU
+        elsif id == Gosu::KbR
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
             end
-        elsif id == Gosu::KbO
+        elsif id == Gosu::KbY
             modify do |n|
                 n.angle_y = n.angle_y + 0.05
             end
-        elsif id == Gosu::KbI
+        elsif id == Gosu::KbT
             modify do |n|
                 n.angle_z = n.angle_z - 0.05
             end
-        elsif id == Gosu::KbK
+        elsif id == Gosu::KbG
             modify do |n|
                 n.angle_z = n.angle_z + 0.05
             end
