@@ -41,6 +41,7 @@ class ThreeDObject
     attr_accessor :speed
     attr_accessor :color
     attr_accessor :visible
+    attr_accessor :scale
 
     def initialize(color = COLOR_AQUA)
         @move_x = 0     # TODO make public?
@@ -141,6 +142,9 @@ class ThreeDObject
         xd = model_point.x - $center_x
         yd = model_point.y - $center_y
         zd = model_point.z - $center_z
+        #if self.is_a? Cube 
+        #    puts "#{xd}, #{yd}, #{zd}"
+        #end
 
         # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
         # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
@@ -280,7 +284,10 @@ class CubeRender < RdiaGame
         # scaling
         register_hold_down_key(Gosu::KbUp)
         register_hold_down_key(Gosu::KbDown)
-        
+
+        register_hold_down_key(Gosu::KbM)
+        register_hold_down_key(Gosu::KbPeriod)
+
     end 
 end
 
@@ -307,7 +314,6 @@ class CubeRenderDisplay < Widget
         @speed = 5
         @mode = MODE_ISOMETRIC
         @continuous_movement = true
-        #@scale = 0.5
         @scaling_speed = 0.05
 
         # Axis lines
@@ -352,6 +358,10 @@ class CubeRenderDisplay < Widget
         add_child(@text_4)
         @text_5 = Text.new(10, 130, "0, 0")
         add_child(@text_5)
+        @text_6 = Text.new(10, 160, center_text)
+        add_child(@text_6)
+        @text_7 = Text.new(10, 190, cube_text)
+        add_child(@text_7)
     end 
 
     def modify(&block)
@@ -365,10 +375,14 @@ class CubeRenderDisplay < Widget
         modify do |n|
             n.calc_points
         end
+        @center_cube = Cube.new($center_x + 25, $center_y, $center_z, 25, COLOR_LIGHT_BLUE)
+        @center_cube.calc_points
     end 
 
     def render
         Gosu.translate(@offset_x, @offset_y) do
+            @center_cube.render
+
             modify do |n|
                 if n.is_behind_us 
                     # do not draw 
@@ -376,9 +390,11 @@ class CubeRenderDisplay < Widget
                     n.render
                 end
             end
-            @z_axis_lines.each do |z_axis_line|
-                WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
-            end
+
+            # TEMP so it is easier to see center cube
+            #@z_axis_lines.each do |z_axis_line|
+            #    WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
+            #end
 
             # TODO draw the x axis line numbers
             #@x_axis_lines.each do |x_axis_line|
@@ -406,10 +422,15 @@ class CubeRenderDisplay < Widget
             end 
         end
         @text_5.label = "Invisible objs: #{number_of_invisible_objects}"
+        @text_6.label = center_text
+        @text_7.label = cube_text
     end
 
     def camera_text 
         "Camera: #{$camera_x}, #{$camera_y}, #{$camera_z}" 
+    end 
+    def center_text 
+        "Center: #{$center_x.round}, #{$center_y.round}, #{$center_z.round}" 
     end 
     def location_text 
         "Location: #{@cube.model_points[0].x.round}, #{@cube.model_points[0].y.round}, #{@cube.model_points[0].z.round}"
@@ -422,6 +443,9 @@ class CubeRenderDisplay < Widget
     end
     def objects_text 
         "Num objs: #{@all_objects.size}"
+    end
+    def cube_text 
+        "Cube: #{@cube.model_points[0].x}, #{@cube.model_points[0].y}, #{@cube.model_points[0].z}"
     end
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -444,16 +468,16 @@ class CubeRenderDisplay < Widget
             end
         elsif id == Gosu::KbUp
             # TODO this needs to delegate to the objects
-            @scale = @scale + @scaling_speed
+            modify do |n|
+                n.scale = n.scale + @scaling_speed
+            end
         elsif id == Gosu::KbDown
             # TODO this needs to delegate to the objects
-            if @scale > 0.3
-                @scale = @scale - 0.05
-            else 
-                @scale = @scale - 0.01
-            end
-            if @scale < 0 
-                @scale = 0.001
+            modify do |n|
+                n.scale = n.scale - @scaling_speed
+                if n.scale < 0 
+                    n.scale = 0.001
+                end
             end
         end
     end
@@ -517,6 +541,28 @@ class CubeRenderDisplay < Widget
             modify do |n|
                 n.angle_z = n.angle_z + 0.05
             end
+
+        elsif id == Gosu::KbM 
+            #delta_x = Math.cos(DEG_45)
+            #delta_z = Math.sin(DEG_45)
+            #amount_x = delta_x * 800.to_f
+            #amount_z = delta_z * 800.to_f
+            #puts "Delta #{delta_x}, #{delta_z}  =>  #{amount_x}, #{amount_z}"
+            #$center_x = $center_x + amount_x
+            #$center_z = $center_z + amount_z
+            #modify do |n|
+            #    n.angle_y = DEG_45
+            #end
+            
+            $center_z = -300
+        elsif id == Gosu::KbPeriod
+            $center_x = $center_x + 10
+            $center_z = $center_z + 10
+            modify do |n|
+                n.angle_y = n.angle_y - 0.05
+            end
+            #$center_z = $center_z + 10
+            #$center_y = $center_y + 10
         end
     end
 
