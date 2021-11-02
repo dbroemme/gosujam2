@@ -14,7 +14,6 @@ MODE_REAL_THREE_D = "real3d"
 
 AXIS_BEGIN = -500
 AXIS_END = 500
-CAMERA_Z_START = 800
 
 class ThreeDPoint
     attr_accessor :x
@@ -306,10 +305,10 @@ class CubeRenderDisplay < Widget
 
         $center_x = 0
         $center_y = 0
-        $center_z = 0
+        $center_z = -300
         $camera_x = 0
         $camera_y = 150
-        $camera_z = CAMERA_Z_START   # If this started at zero, we would be inside the cube
+        $camera_z = 800
 
         @speed = 5
         @mode = MODE_ISOMETRIC
@@ -495,19 +494,24 @@ class CubeRenderDisplay < Widget
             @cube.move_towards
         elsif id == Gosu::KbS
             @cube.move_away
-
-        elsif id == Gosu::KbJ
-            $camera_x = $camera_x + @speed
-        elsif id == Gosu::KbL
-            $camera_x = $camera_x - @speed
         #elsif id == Gosu::KbU              # change camera elevation later, don't need it now
         #    $camera_y = $camera_y - @speed
         #elsif id == Gosu::KbO              # change camera elevation later, don't need it now
         #    $camera_y = $camera_y + @speed
+
+
+        elsif id == Gosu::KbJ
+            $camera_x = $camera_x + @speed
+            $center_x = $center_x - @speed
+        elsif id == Gosu::KbL
+            $camera_x = $camera_x - @speed
+            $center_x = $center_x + @speed
         elsif id == Gosu::KbI
             $camera_z = $camera_z - @speed
+            $center_z = $center_z + @speed
         elsif id == Gosu::KbK
             $camera_z = $camera_z + @speed
+            $center_z = $center_z - @speed
         elsif id == Gosu::KbU
             modify do |n|
                 n.angle_y = n.angle_y + 0.05
