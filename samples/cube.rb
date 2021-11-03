@@ -49,6 +49,7 @@ class ThreeDObject
         reset_angle_and_scale
         @color = color
         @visible = true
+        @draw_as_image = true
     end 
 
     def is_behind_us
@@ -108,20 +109,37 @@ class ThreeDObject
         end
     end 
 
-    def draw_square(points)
+    def draw_quad(points)
+        if @draw_as_image 
+            @img.draw_as_quad points[0].x, points[0].y, @color,
+                              points[1].x, points[1].y, @color,
+                              points[2].x, points[2].y, @color,
+                              points[3].x, points[3].y, @color,
+                              10
+        else
+            Gosu::draw_quad points[0].x, points[0].y, @color,
+                            points[1].x, points[1].y, @color,
+                            points[2].x, points[2].y, @color,
+                            points[3].x, points[3].y, @color,
+                            10
+        end
+    end 
+
+    def draw_square(points, override_color = nil)
         (0..3).each do |n|
             if n == 3
-                draw_line(points, n, 0, @color)
+                draw_line(points, n, 0, 10, override_color)
             else 
-                draw_line(points, n, n + 1, @color)
+                draw_line(points, n, n + 1, 10, override_color)
             end 
         end
     end
     
-    def draw_line(points, index1, index2, color = COLOR_AQUA, z = 10)
+    def draw_line(points, index1, index2, z = 10, override_color = nil)
         point1 = points[index1]
         point2 = points[index2]
-        Gosu::draw_line point1.x, point1.y, color, point2.x, point2.y, color, z
+        color_to_use = override_color.nil? ? @color : override_color 
+        Gosu::draw_line point1.x, point1.y, color_to_use, point2.x, point2.y, color_to_use, z
     end
 
     def calc_points
@@ -205,7 +223,7 @@ class ThreeDLine < ThreeDObject
     end
 
     def render 
-        draw_line(@render_points, 0, 1, @color, 9)
+        draw_line(@render_points, 0, 1, 9)
     end 
 
     def to_s 
@@ -221,8 +239,8 @@ class Cube < ThreeDObject
         @y = y 
         @z = z
         @length = length
-        # TODO really we need to add camera values to x and y also, they were just zero to begin
         reset
+        @img = Gosu::Image.new("./media/tile5.png")
     end 
 
     def reset 
@@ -247,13 +265,26 @@ class Cube < ThreeDObject
         g = @render_points[6]
         h = @render_points[7]
 
-        draw_square([a, b, c, d])
-        draw_square([a, e, h, d])
-        draw_square([b, f, g, c])
+        # TODO figure out which of these faces are not visible
+        #      what direction are we facing relative to this cube
+        #      can raytracing help?
+        draw_quad([a, b, c, d])    # front
+        draw_square([a, b, c, d], COLOR_WHITE)
 
-        draw_square([e, f, g, h])
-        draw_square([a, e, f, b])
-        draw_square([d, h, g, c])
+        draw_quad([b, f, g, c])    # right side
+        draw_square([b, f, g, c], COLOR_WHITE)
+
+        draw_quad([d, h, g, c])    # top
+        draw_square([d, h, g, c], COLOR_WHITE)
+
+        #draw_quad([a, e, h, d])   # left side
+        #draw_square([a, e, h, d], COLOR_WHITE)
+
+        #draw_quad([e, f, g, h])   # back     
+        #draw_square([e, f, g, h], COLOR_WHITE)
+
+        #draw_quad([a, e, f, b])   # bottom   Normally we never draw the bottom
+        #draw_square([a, e, f, b], COLOR_WHITE)
     end 
 end
 
