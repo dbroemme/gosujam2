@@ -232,10 +232,10 @@ class ThreeDLine < ThreeDObject
     end
 
     def render 
-        if not $debug_once
-            puts "line #{a.x}, #{a.z} to #{b.x}, #{b.z} drawn at #{@render_points[0].x}, #{@render_points[0].y} to #{@render_points[1].x}, #{@render_points[1].y}"
-        end
-        $debug_once = true
+        #if not $debug_once
+        #    puts "line #{a.x}, #{a.z} to #{b.x}, #{b.z} drawn at #{@render_points[0].x}, #{@render_points[0].y} to #{@render_points[1].x}, #{@render_points[1].y}"
+        #end
+        #$debug_once = true
         draw_line(@render_points, 0, 1, 10)
     end 
 
@@ -408,10 +408,10 @@ class CubeRenderDisplay < Widget
 
         $center_x = 0
         $center_y = 0
-        $center_z = -300
+        $center_z = -300   # orig -300
         $camera_x = 0
         $camera_y = 150
-        $camera_z = 800
+        $camera_z = 800   # orig 800
 
         @speed = 5
         @mode = MODE_ISOMETRIC
@@ -430,7 +430,7 @@ class CubeRenderDisplay < Widget
         @grid = GridDisplay.new(0, 0, 100, 20, 95)
         @grid.grid_x_offset = 10
         @grid.grid_y_offset = 5
-        #instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+        instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
 
         #@all_objects << Cube.new(300, 0, 300, 100, COLOR_GREEN)
         #@all_objects << Cube.new(300, 0, -300, 100, COLOR_BLUE)
@@ -556,9 +556,9 @@ class CubeRenderDisplay < Widget
             end
 
             # TEMP so it is easier to see center cube
-            #@z_axis_lines.each do |z_axis_line|
-            #    WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
-            #end
+            @z_axis_lines.each do |z_axis_line|
+                WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
+            end
 
             # TODO draw the x axis line numbers
             #@x_axis_lines.each do |x_axis_line|
@@ -569,10 +569,13 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_update update_count, mouse_x, mouse_y
-        #@x_axis_lines.each do |x_axis_line|
-        #    x_axis_line.a.z = -$camera_z + 5
+        @x_axis_lines.each do |x_axis_line|
+            x_axis_line.a.z = $center_z - 300
+            if x_axis_line.a.z < -500
+                x_axis_line.a.z = -500
+            end
             #puts "Set x axis line z to #{x_axis_line}"
-        #end
+        end
         # TODO I guess we need to do the same thing for z axis lines because
         #      when you rotate, at some point they are not visible
         calc_points
@@ -733,8 +736,6 @@ class CubeRenderDisplay < Widget
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
             end
-            #$center_z = $center_z + 10
-            #$center_y = $center_y + 10
         end
     end
 
