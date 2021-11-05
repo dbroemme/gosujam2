@@ -12,8 +12,110 @@ SCREEN_HEIGHT = 480
 MAP_WIDTH = 24
 MAP_HEIGHT = 24
 
+class RayCaster 
+    def initialize(world_map, screen_width, screen_height)
+        @world_map = world_map
+        @w = screen_width
+        @h = screen_height
+    end 
 
-class Raycaster < RdiaGame
+    def ray(x, posX, posY, dirX, dirY, planeX, planeY)
+        # calculate ray position and direction
+        cameraX = (2 * (x / @w.to_f)) - 1;   # x-coordinate in camera space
+        rayDirX = dirX + (planeX * cameraX)
+        rayDirY = dirY + (planeY * cameraX)
+        # which box of the map we're in
+        mapX = posX.to_i
+        mapY = posY.to_i
+
+        # length of ray from current position to next x or y-side: sideDistX, sideDistY
+          
+        # length of ray from one x or y-side to next x or y-side
+        # these are derived as:
+        # deltaDistX = sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX))
+        # deltaDistY = sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY))
+        # which can be simplified to abs(|rayDir| / rayDirX) and abs(|rayDir| / rayDirY)
+        # where |rayDir| is the length of the vector (rayDirX, rayDirY). Its length,
+        # unlike (dirX, dirY) is not 1, however this does not matter, only the
+        # ratio between deltaDistX and deltaDistY matters, due to the way the DDA
+        # stepping further below works. So the values can be computed as below.
+        # Division through zero is prevented, even though technically that's not
+        # needed in C++ with IEEE 754 floating point values.
+        deltaDistX = (rayDirX == 0) ? 1e30 : (1 / rayDirX).abs
+        deltaDistY = (rayDirY == 0) ? 1e30 : (1 / rayDirY).abs
+          
+        perpWallDist = nil    # double
+          
+        # what direction to step in x or y-direction (either +1 or -1)
+        stepX = nil    # int
+        stepY = nil    # int
+
+                  
+        hit = 0        # was there a wall hit? (int) (is this really a boolean)
+        side = nil     # was a NS or a EW wall hit? (int) (is this really a boolean)
+        # calculate step and initial sideDist
+        if rayDirX < 0
+            stepX = -1
+            sideDistX = (posX - mapX) * deltaDistX
+        else
+            stepX = 1
+            sideDistX = (mapX + 1.0 - posX) * deltaDistX
+        end
+        if rayDirY < 0
+            stepY = -1
+            sideDistY = (posY - mapY) * deltaDistY
+        else
+            stepY = 1;
+            sideDistY = (mapY + 1.0 - posY) * deltaDistY
+        end
+        # perform DDA
+        while hit == 0
+            # jump to next map square, either in x-direction, or in y-direction
+            if sideDistX < sideDistY
+                sideDistX += deltaDistX
+                mapX += stepX
+                side = 0
+            else
+                sideDistY += deltaDistY
+                mapY += stepY
+                side = 1
+            end
+            # Check if ray has hit a wall
+            if @world_map[mapX][mapY] > 0
+                hit = 1
+            end
+        end
+
+        # Calculate distance projected on camera direction. This is the shortest distance from the point where the wall is
+        # hit to the camera plane. Euclidean to center camera point would give fisheye effect!
+        # This can be computed as (mapX - posX + (1 - stepX) / 2) / rayDirX for side == 0, or same formula with Y
+        # for size == 1, but can be simplified to the code below thanks to how sideDist and deltaDist are computed:
+        # because they were left scaled to |rayDir|. sideDist is the entire length of the ray above after the multiple
+        # steps, but we subtract deltaDist once because one step more into the wall was taken above.
+        if side == 0
+            perpWallDist = (sideDistX - deltaDistX)
+        else
+            perpWallDist = (sideDistY - deltaDistY)
+        end
+
+        # Calculate height of line to draw on screen
+        lineHeight = (@h / perpWallDist).to_i
+
+        # calculate lowest and highest pixel to fill in current stripe
+        drawStart = ((-lineHeight / 2) + (@h / 2)).to_i
+        if drawStart < 0
+            drawStart = 0
+        end
+        drawEnd = ((lineHeight / 2) + (@h / 2)).to_i
+        if drawEnd >= @h
+            drawEnd = @h - 1
+        end
+        
+        [drawStart, drawEnd, mapX, mapY, side]
+    end
+end
+
+class RaycasterGame < RdiaGame
     def initialize
         super(SCREEN_WIDTH, SCREEN_HEIGHT, "Raycaster", RaycasterDisplay.new)
         register_hold_down_key(Gosu::KbA)    # Move left
@@ -71,24 +173,13 @@ class RaycasterDisplay < Widget
           [1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
           [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ]     
+        @raycaster = RayCaster.new(@worldMap, SCREEN_WIDTH, SCREEN_HEIGHT)
     end
 
     def draw 
-        #@children.each do |child|
-        #    if child.is_a? GridDisplay or child.is_a? Character
-                # skip
-        #    else
-        #        child.draw
-        #    end
-        #end
-
-        #Gosu.translate(-@camera_x, -@camera_y) do
-            if @vertical_lines 
-                @vertical_lines.each do |line|
-                    line.draw 
-                end 
-            end
-        #end
+        @vertical_lines.each do |line|
+            line.draw 
+        end 
     end 
 
     def handle_update update_count, mouse_x, mouse_y
@@ -96,113 +187,22 @@ class RaycasterDisplay < Widget
         # so there isn't a calculation for every pixel of the screen,
         # but only for every vertical stripe, which isn't much at all!
         @vertical_lines = []
-        w = SCREEN_WIDTH   # or is this grid width?
-        h = SCREEN_HEIGHT  # or is this grid height?
+        w = SCREEN_WIDTH 
+        h = SCREEN_HEIGHT
         (0..w).each do |x|
-            # calculate ray position and direction
-            cameraX = (2 * (x / w.to_f)) - 1;   # x-coordinate in camera space
-            rayDirX = @dirX + (@planeX * cameraX)
-            rayDirY = @dirY + (@planeY * cameraX)
-            # which box of the map we're in
-            mapX = @posX.to_i
-            mapY = @posY.to_i
-          
-            # length of ray from current position to next x or y-side: sideDistX, sideDistY
-          
-            # length of ray from one x or y-side to next x or y-side
-            # these are derived as:
-            # deltaDistX = sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX))
-            # deltaDistY = sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY))
-            # which can be simplified to abs(|rayDir| / rayDirX) and abs(|rayDir| / rayDirY)
-            # where |rayDir| is the length of the vector (rayDirX, rayDirY). Its length,
-            # unlike (dirX, dirY) is not 1, however this does not matter, only the
-            # ratio between deltaDistX and deltaDistY matters, due to the way the DDA
-            # stepping further below works. So the values can be computed as below.
-            # Division through zero is prevented, even though technically that's not
-            # needed in C++ with IEEE 754 floating point values.
-            deltaDistX = (rayDirX == 0) ? 1e30 : (1 / rayDirX).abs
-            deltaDistY = (rayDirY == 0) ? 1e30 : (1 / rayDirY).abs
-          
-            perpWallDist = nil    # double
-          
-            # what direction to step in x or y-direction (either +1 or -1)
-            stepX = nil    # int
-            stepY = nil    # int
-          
-            hit = 0        # was there a wall hit? (int) (is this really a boolean)
-            side = nil     # was a NS or a EW wall hit? (int) (is this really a boolean)
-            # calculate step and initial sideDist
-            if rayDirX < 0
-                stepX = -1
-                sideDistX = (@posX - mapX) * deltaDistX
-            else
-                stepX = 1
-                sideDistX = (mapX + 1.0 - @posX) * deltaDistX
-            end
-            if rayDirY < 0
-                stepY = -1
-                sideDistY = (@posY - mapY) * deltaDistY
-            else
-                stepY = 1;
-                sideDistY = (mapY + 1.0 - @posY) * deltaDistY
-            end
-            # perform DDA
-            while hit == 0
-                # jump to next map square, either in x-direction, or in y-direction
-                if sideDistX < sideDistY
-                    sideDistX += deltaDistX
-                    mapX += stepX
-                    side = 0
-                else
-                    sideDistY += deltaDistY
-                    mapY += stepY
-                    side = 1
-                end
-                # Check if ray has hit a wall
-                if @worldMap[mapX][mapY] > 0
-                    hit = 1
-                end
-            end
 
-            # Calculate distance projected on camera direction. This is the shortest distance from the point where the wall is
-            # hit to the camera plane. Euclidean to center camera point would give fisheye effect!
-            # This can be computed as (mapX - posX + (1 - stepX) / 2) / rayDirX for side == 0, or same formula with Y
-            # for size == 1, but can be simplified to the code below thanks to how sideDist and deltaDist are computed:
-            # because they were left scaled to |rayDir|. sideDist is the entire length of the ray above after the multiple
-            # steps, but we subtract deltaDist once because one step more into the wall was taken above.
-            if side == 0
-                perpWallDist = (sideDistX - deltaDistX)
-            else
-                perpWallDist = (sideDistY - deltaDistY)
-            end
-          
-            # Calculate height of line to draw on screen
-            lineHeight = (h / perpWallDist).to_i
-          
-            # calculate lowest and highest pixel to fill in current stripe
-            drawStart = ((-lineHeight / 2) + (h / 2)).to_i
-            if drawStart < 0
-                drawStart = 0
-            end
-            drawEnd = ((lineHeight / 2) + (h / 2)).to_i
-            if drawEnd >= h
-                drawEnd = h - 1
-            end
-          
+            drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, @posX, @posY, @dirX, @dirY, @planeX, @planeY)
+           
             # choose wall color
             color = nil   # rgb
             case @worldMap[mapX][mapY]
             when 1
-                #color = COLOR_RED
                 color = Gosu::Color.new(255, 255, 0, 0)
             when 2
-                #color = COLOR_GREEN
                 color = Gosu::Color.new(255, 0, 255, 0)
             when 3
-                #color = COLOR_BLUE
                 color = Gosu::Color.new(255, 0, 0, 255)
             when 4
-                #color = COLOR_WHITE
                 color = Gosu::Color.new(255, 255, 255, 255)
             else
                 color = COLOR_YELLOW
@@ -287,4 +287,4 @@ class RaycasterDisplay < Widget
     end
 end
 
-Raycaster.new.show
+RaycasterGame.new.show

@@ -43,7 +43,7 @@ class TileEditorDisplay < Widget
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
 
         #@grid = GridDisplay.new(0, 0, 16, 50, 38, {ARG_SCALE => 2})
-        @grid = GridDisplay.new(0, 0, 16, 50, 38)
+        @grid = GridDisplay.new(0, 0, 16, 20, 95)
         instantiate_elements(File.readlines(board_file))
         add_child(@grid)
 
@@ -113,8 +113,8 @@ class TileEditorDisplay < Widget
         # Scrolling follows player
         # @camera_x = [[@cptn.x - WIDTH / 2, 0].max, @map.width * 50 - WIDTH].min
         # @camera_y = [[@cptn.y - HEIGHT / 2, 0].max, @map.height * 50 - HEIGHT].min 
-        @camera_x = [[@center_x - (GAME_WIDTH.to_f / 2), 0].max, @grid.grid_width * 32 - GAME_WIDTH].min
-        @camera_y = [[@center_y - (GAME_HEIGHT.to_f / 2), 0].max, @grid.grid_height * 32 - GAME_HEIGHT].min
+        #@camera_x = [[@center_x - (GAME_WIDTH.to_f / 2), 0].max, @grid.grid_width * 32 - GAME_WIDTH].min
+        #@camera_y = [[@center_y - (GAME_HEIGHT.to_f / 2), 0].max, @grid.grid_height * 32 - GAME_HEIGHT].min
         #puts "#{@player.x}, #{@player.y}    Camera: #{@camera_x}, #{@camera_y}"
 
         @current_mouse_text.label = "#{mouse_x}, #{mouse_y}"

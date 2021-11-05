@@ -42,6 +42,10 @@ class ThreeDObject
     attr_accessor :visible
     attr_accessor :scale
 
+    attr_accessor :x
+    attr_accessor :y
+    attr_accessor :scale
+
     def initialize(color = COLOR_AQUA)
         @move_x = 0     # TODO make public?
         @move_y = 0     # TODO make public?
@@ -50,16 +54,19 @@ class ThreeDObject
         @color = color
         @visible = true
         @draw_as_image = true
+        @scale = 1
     end 
 
     def is_behind_us
-        # This is a hack, but somewhat effective I think. 
-        # Except maybe for when you are dealing with cubes
-        if @render_points[0].y < 0 or @render_points[1].y < 0
-            #puts "Not displaying line because 0 point z #{@render_points[0].z} > #{$camera_z}"
-            @visible = false
-            return true 
+        # This is a hack, but somewhat effective
+        (0..@render_points.size-1).each do |n|
+            if @render_points[n].y < -10
+                #puts "Not displaying #{self.class.name} because render point #{n} is #{render_points[n].y}"
+                @visible = false
+                return true 
+            end
         end
+        
         #elsif @model_points[1].z > $camera_z
         #    puts "Not displaying line because 1 point z #{@render_points[1].z} > #{$camera_z}"
         @visible = true
@@ -211,7 +218,9 @@ end
 class ThreeDLine < ThreeDObject
     def initialize(a, b, color = COLOR_AQUA)
         super(color)
-        @model_points << a 
+        #puts "Creating line anchored at #{a.x}, #{a.z} to #{b.x}, #{b.z} "
+        reset_angle_and_scale
+        @model_points << a
         @model_points << b
     end
 
@@ -223,7 +232,11 @@ class ThreeDLine < ThreeDObject
     end
 
     def render 
-        draw_line(@render_points, 0, 1, 9)
+        if not $debug_once
+            puts "line #{a.x}, #{a.z} to #{b.x}, #{b.z} drawn at #{@render_points[0].x}, #{@render_points[0].y} to #{@render_points[1].x}, #{@render_points[1].y}"
+        end
+        $debug_once = true
+        draw_line(@render_points, 0, 1, 10)
     end 
 
     def to_s 
@@ -253,6 +266,65 @@ class Cube < ThreeDObject
         @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
         @model_points << ThreeDPoint.new(@x + @length, @y - @length, @z + @length)
         @model_points << ThreeDPoint.new(@x,           @y - @length, @z + @length)
+    end
+
+    def render 
+        a = @render_points[0]
+        b = @render_points[1]
+        c = @render_points[2]
+        d = @render_points[3]
+        e = @render_points[4]
+        f = @render_points[5]
+        g = @render_points[6]
+        h = @render_points[7]
+
+        # TODO figure out which of these faces are not visible
+        #      what direction are we facing relative to this cube
+        #      can raytracing help?
+        draw_quad([a, b, c, d])    # front
+        draw_square([a, b, c, d], COLOR_WHITE)
+
+        draw_quad([b, f, g, c])    # right side
+        draw_square([b, f, g, c], COLOR_WHITE)
+
+        draw_quad([d, h, g, c])    # top
+        draw_square([d, h, g, c], COLOR_WHITE)
+
+        #draw_quad([a, e, h, d])   # left side
+        #draw_square([a, e, h, d], COLOR_WHITE)
+
+        #draw_quad([e, f, g, h])   # back     
+        #draw_square([e, f, g, h], COLOR_WHITE)
+
+        #draw_quad([a, e, f, b])   # bottom   Normally we never draw the bottom
+        #draw_square([a, e, f, b], COLOR_WHITE)
+    end 
+end
+
+class Wall < ThreeDObject
+    # The x, y, z coordinates are for the upper left corner
+    def initialize(x, z, length, img = "./media/tile5.png")
+        super()
+        @x = x 
+        @y = 0
+        @z = z
+        @length = length    # right now this only supports square, so one length
+        @height = 100
+        reset
+        @img = Gosu::Image.new(img)
+    end 
+
+    def reset 
+        reset_angle_and_scale
+        puts "Creating wall anchored at bottom left #{@x}, #{@z}"
+        @model_points << ThreeDPoint.new(@x,           @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @length, @y - @height, @z)
+        @model_points << ThreeDPoint.new(@x,           @y - @height, @z)
+        @model_points << ThreeDPoint.new(@x,           @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x + @length, @y - @height, @z + @length)
+        @model_points << ThreeDPoint.new(@x,           @y - @height, @z + @length)
     end
 
     def render 
@@ -353,19 +425,23 @@ class CubeRenderDisplay < Widget
 
         # Our objects
         @cube = Cube.new(-300, 0, 300, 100, COLOR_RED)
-
-        #@all_objects = [@cube, @x_axis, @y_axis, @z_axis]
         @all_objects = [@cube]
-        @all_objects << Cube.new(300, 0, 300, 100, COLOR_GREEN)
-        @all_objects << Cube.new(300, 0, -300, 100, COLOR_BLUE)
-        @all_objects << Cube.new(-300, 0, -300, 100, COLOR_LIME)
-        @all_objects << Cube.new(50, 0, 0, 50, COLOR_AQUA)
+
+        @grid = GridDisplay.new(0, 0, 100, 20, 95)
+        @grid.grid_x_offset = 10
+        @grid.grid_y_offset = 5
+        #instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+
+        #@all_objects << Cube.new(300, 0, 300, 100, COLOR_GREEN)
+        #@all_objects << Cube.new(300, 0, -300, 100, COLOR_BLUE)
+        #@all_objects << Cube.new(-300, 0, -300, 100, COLOR_LIME)
+        #@all_objects << Cube.new(50, 0, 0, 50, COLOR_AQUA)
 
         # Darren
         # Floor lines. Floor is y=0, because y is really height
         x = -1000
         while x < 1050
-            x_axis_line = ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 9000), COLOR_WHITE)
+            x_axis_line = ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 8900), COLOR_WHITE)
             @x_axis_lines << x_axis_line
             @all_objects << x_axis_line
             x = x + 100
@@ -394,6 +470,63 @@ class CubeRenderDisplay < Widget
         add_child(@text_7)
     end 
 
+    def instantiate_elements(grid, all_objects, dsl)         
+        grid.clear_tiles
+        grid_y = 89
+        grid_x = -10
+        dsl.each do |line|
+            index = 0
+            while index < line.size
+                char = line[index..index+1].strip
+                img = nil
+                #if char == "B"
+                #    img = Brick.new(@blue_brick)
+                if char == "W" or char == "5"
+                    img = Wall.new(grid_x * 100, grid_y * 100, 100)
+                #elsif char == "Y" or char == "18"
+                #    img = Dot.new(@yellow_dot)
+                #elsif char == "G" or char == "19"
+                #    img = Dot.new(@green_dot)
+                #elsif char == "F" or char == "66"
+                #    img = OutOfBounds.new(@fire_transition_tile)
+                #elsif char == "T"
+                #    img = DiagonalWall.new(@red_wall_nw, QUAD_NW)
+                #elsif char == "V"
+                #    img = DiagonalWall.new(@red_wall_ne, QUAD_NE)
+                #elsif char == "X"
+                #    img = DiagonalWall.new(@red_wall_sw, QUAD_SW)
+                #elsif char == "Z"
+                #    img = DiagonalWall.new(@red_wall_se, QUAD_SE)
+                #elsif char == "E" or char == "64"
+                #    img = GoalArea.new(@goal_tile)
+                #elsif char == "N"
+                #    img = BackgroundArea.new(@tree_tile)
+                #elsif char == "D"
+                #    img = BackgroundArea.new(@torch_tile)
+                #elsif char == "O"
+                #    img = OneWayDoor.new(@one_way_tile, @red_wall)
+                #    @one_way_doors << img
+                #elsif char.match?(/[[:digit:]]/)
+                #    tile_index = char.to_i
+                #    img = BackgroundArea.new(@tileset[tile_index])
+                end
+                
+                if img.nil?
+                    # nothing to do
+                else
+                    #puts "#{grid_x},#{grid_y}  =  #{char}"
+                    grid.set_tile(grid_x, grid_y, img)
+                    all_objects << img
+                end
+
+                grid_x = grid_x + 1
+                index = index + 2
+            end
+            grid_x = -10
+            grid_y = grid_y - 1
+        end
+    end 
+
     def modify(&block)
         @all_objects.each do |obj|
             yield obj
@@ -416,6 +549,7 @@ class CubeRenderDisplay < Widget
             modify do |n|
                 if n.is_behind_us 
                     # do not draw 
+                    #puts "Not drawing #{n.class.name}"
                 else
                     n.render
                 end
@@ -435,9 +569,10 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_update update_count, mouse_x, mouse_y
-        @x_axis_lines.each do |x_axis_line|
-            x_axis_line.a.z = -$camera_z + 5
-        end
+        #@x_axis_lines.each do |x_axis_line|
+        #    x_axis_line.a.z = -$camera_z + 5
+            #puts "Set x axis line z to #{x_axis_line}"
+        #end
         # TODO I guess we need to do the same thing for z axis lines because
         #      when you rotate, at some point they are not visible
         calc_points
@@ -551,7 +686,9 @@ class CubeRenderDisplay < Widget
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
             end
-
+        #
+        # not really used
+        #
         elsif id == Gosu::KbF
             modify do |n|
                 n.angle_x = n.angle_x - 0.05

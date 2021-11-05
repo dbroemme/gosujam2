@@ -476,6 +476,8 @@ module RdiaGames
         attr_accessor :tiles
         attr_accessor :scale
         attr_accessor :display_grid
+        attr_accessor :grid_x_offset    # so that we can use negative coordinates 
+        attr_accessor :grid_y_offset    
 
         def initialize(x, y, tile_size, grid_width, grid_height, args = {})
             @scale = 1
@@ -493,6 +495,8 @@ module RdiaGames
             end
             clear_tiles
             @display_grid = false
+            @grid_x_offset = 0
+            @grid_y_offset = 0
         end
 
         def clear_tiles
@@ -532,17 +536,21 @@ module RdiaGames
         end 
 
         def set_tile(tile_x, tile_y, widget)
-            if tile_x < 0 or tile_y < 0
-                raise "Cannot set tile at negative numbers"
+            adjusted_tile_x = tile_x + @grid_x_offset
+            adjusted_tile_y = tile_y + @grid_y_offset
+            if adjusted_tile_x < 0 or adjusted_tile_y < 0
+                raise "Cannot set tile at negative numbers #{adjusted_tile_x}, #{adjusted_tile_y}"
             end
-            if tile_x >= @grid_width
-                raise "Cannot set tile at x #{tile_x}, max width is #{@grid_width - 1}"
-            elsif tile_y >= @grid_height
-                raise "Cannot set tile at y #{tile_y}, max height is #{@grid_height - 1}"
+            if adjusted_tile_x >= @grid_width
+                raise "Cannot set tile at x #{adjusted_tile_x}, max width is #{@grid_width - 1}"
+            elsif adjusted_tile_y >= @grid_height
+                raise "Cannot set tile at y #{adjusted_tile_y}, max height is #{@grid_height - 1}"
             end
-            widget.x = relative_x(grid_to_relative_pixel(tile_x))
-            widget.y = relative_y(grid_to_relative_pixel(tile_y))
-            widget.scale = @scale
+            if widget.is_a? Widget
+                widget.x = relative_x(grid_to_relative_pixel(adjusted_tile_x))
+                widget.y = relative_y(grid_to_relative_pixel(adjusted_tile_y))
+                widget.scale = @scale
+            end
             @tiles[tile_x][tile_y] = widget 
         end
 
