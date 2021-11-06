@@ -403,6 +403,8 @@ class CubeRenderDisplay < Widget
         @x_axis_lines = []
         @z_axis_lines = []
 
+        # Draw offsets so the zero centered world is centered visually on the screen
+        # This allows the initial center of the world to be 0, 0
         @offset_x = 600
         @offset_y = 300
 
@@ -412,6 +414,9 @@ class CubeRenderDisplay < Widget
         $camera_x = 0
         $camera_y = 150
         $camera_z = 800   # orig 800
+
+        @dir_x = 1     # initial direction vector
+        @dir_y = 0   
 
         @speed = 5
         @mode = MODE_ISOMETRIC
@@ -460,9 +465,9 @@ class CubeRenderDisplay < Widget
         add_child(@text_2)
         @text_3 = Text.new(10, 70, angle_text)
         add_child(@text_3)
-        @text_4 = Text.new(10, 100, objects_text)
+        @text_4 = Text.new(10, 100, dir_text)
         add_child(@text_4)
-        @text_5 = Text.new(10, 130, "0, 0")
+        @text_5 = Text.new(10, 130, objects_text)
         add_child(@text_5)
         @text_6 = Text.new(10, 160, center_text)
         add_child(@text_6)
@@ -538,13 +543,25 @@ class CubeRenderDisplay < Widget
         modify do |n|
             n.calc_points
         end
-        @center_cube = Cube.new($center_x + 12.5, $center_y, $center_z + 12.5, 25, COLOR_LIGHT_BLUE)
+
+        # Show the origin (pivot) point as a cube
+        @center_cube = Cube.new($center_x, $center_y, $center_z, 25, COLOR_LIGHT_BLUE)
         @center_cube.calc_points
+
+        # Darren Show the directional vector as a cube
+        # initial direction vector    @dir_x = -1   @dir_y = 0   
+        dir_scale = 100
+        extended_dir_x = @dir_x * dir_scale  
+        extended_dir_y = @dir_y * dir_scale  
+        @dir_cube = Cube.new($center_x + extended_dir_y, $center_y, $center_z + extended_dir_x, 25, COLOR_PEACH)
+        @dir_cube.angle_y = @all_objects[0].angle_y
+        @dir_cube.calc_points
     end 
 
     def render
         Gosu.translate(@offset_x, @offset_y) do
             @center_cube.render
+            @dir_cube.render
 
             modify do |n|
                 if n.is_behind_us 
@@ -582,14 +599,14 @@ class CubeRenderDisplay < Widget
         @text_1.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @text_2.label = camera_text
         @text_3.label = angle_text
-        @text_4.label = objects_text
+        @text_4.label = dir_text
         number_of_invisible_objects = 0
         @all_objects.each do |obj| 
             if not obj.visible
                 number_of_invisible_objects = number_of_invisible_objects + 1
             end 
         end
-        @text_5.label = "Invisible objs: #{number_of_invisible_objects}"
+        @text_5.label = "#{objects_text}/#{number_of_invisible_objects}"
         @text_6.label = center_text
         @text_7.label = cube_text
     end
@@ -606,16 +623,22 @@ class CubeRenderDisplay < Widget
     def angle_text 
         "Angle: #{@cube.angle_x.round(2)}, #{@cube.angle_y.round(2)}, #{@cube.angle_z.round(2)}"
     end 
+    def dir_text 
+        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}"
+    end 
     def axis_text 
         "X Axis: #{@x_axis_lines[0].a.z} - #{@x_axis_lines[0].b.z}"
     end
     def objects_text 
-        "Num objs: #{@all_objects.size}"
+        "Objects: #{@all_objects.size} "
     end
     def cube_text 
-        "Cube: #{@cube.model_points[0].x}, #{@cube.model_points[0].y}, #{@cube.model_points[0].z}"
+        #"Cube: #{@cube.model_points[0].x}, #{@cube.model_points[0].y}, #{@cube.model_points[0].z}"
+        if @dir_cube
+            return "Dir Cube: #{@dir_cube.model_points[0].x.round(2)}, #{@dir_cube.model_points[0].y.round(2)}, #{@dir_cube.model_points[0].z.round(2)}"
+        end
+        "" 
     end
-
     def handle_key_held_down id, mouse_x, mouse_y
         if @continuous_movement
             handle_movement id, mouse_x, mouse_y 
@@ -668,13 +691,19 @@ class CubeRenderDisplay < Widget
         #elsif id == Gosu::KbO              # change camera elevation later, don't need it now
         #    $camera_y = $camera_y + @speed
 
-
+        #
+        # Lateral movement. We aren't really using this righ tnow
+        #
         elsif id == Gosu::KbU
             $camera_x = $camera_x + @speed
             $center_x = $center_x - @speed
         elsif id == Gosu::KbO
             $camera_x = $camera_x - @speed
             $center_x = $center_x + @speed
+
+        #
+        # Primary movement keys
+        #
         elsif id == Gosu::KbI
             $camera_z = $camera_z - @speed
             $center_z = $center_z + @speed
@@ -685,10 +714,20 @@ class CubeRenderDisplay < Widget
             modify do |n|
                 n.angle_y = n.angle_y + 0.05
             end
+            angle_y = @cube.angle_y  # just grab the value from one of the objects
+            # Now calculate the new dir_x, dir_y
+            @dir_x = Math.cos(angle_y)
+            @dir_y = Math.sin(angle_y)
+            puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         elsif id == Gosu::KbJ
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
             end
+            angle_y = @cube.angle_y  # just grab the value from one of the objects
+            # Now calculate the new dir_x, dir_y
+            @dir_x = Math.cos(angle_y)
+            @dir_y = Math.sin(angle_y)
+            puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         #
         # not really used
         #
