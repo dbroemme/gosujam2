@@ -6,6 +6,11 @@ require_relative '../lib/rdia-games'
 include Wads
 include RdiaGames
 
+WORLD_X_START = -1000
+WORLD_X_END = 1000
+WORLD_Z_START = -500
+WORLD_Z_END = 9000
+
 GAME_WIDTH = 1280
 GAME_HEIGHT = 720
 
@@ -27,7 +32,7 @@ class ThreeDPoint
     end
 
     def to_s 
-        "#{@x},#{@y},#{@z}"
+        "#{@x.round},#{@y.round},#{@z.round}"
     end
 end
 
@@ -61,7 +66,9 @@ class ThreeDObject
         # This is a hack, but somewhat effective
         (0..@render_points.size-1).each do |n|
             if @render_points[n].y < -10
-                #puts "Not displaying #{self.class.name} because render point #{n} is #{render_points[n].y}"
+                if self.is_a? ThreeDLine
+                    puts "Not displaying #{self.to_s}"
+                end
                 @visible = false
                 return true 
             end
@@ -240,9 +247,38 @@ class ThreeDLine < ThreeDObject
     end 
 
     def to_s 
-        "Line: #{a} (#{@render_points[0]}) to #{b} (#{@render_points[1]})"
+        "Line: [#{a}] (#{@render_points[0]}) to [#{b}] (#{@render_points[1]})"
     end
 end 
+
+class FloorTile < ThreeDObject
+    # The x, y, z coordinates are for the upper left corner
+    def initialize(x, z, length = 100, color = COLOR_WHITE)
+        super(color)
+        @x = x 
+        @y = 0 
+        @z = z
+        @length = length
+        @draw_as_image = false
+        reset
+    end 
+
+    def reset 
+        reset_angle_and_scale
+        @model_points << ThreeDPoint.new(@x,           @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x,           @y,           @z + @length)
+    end
+
+    def render 
+        a = @render_points[0]
+        b = @render_points[1]
+        c = @render_points[2]
+        d = @render_points[3]
+        draw_square([a, b, c, d])
+    end 
+end
 
 class Cube < ThreeDObject
     # The x, y, z coordinates are for the upper left corner
@@ -417,6 +453,7 @@ class CubeRenderDisplay < Widget
 
         @dir_x = 1     # initial direction vector
         @dir_y = 0   
+        determine_directional_quadrant
 
         @speed = 5
         @mode = MODE_ISOMETRIC
@@ -431,6 +468,7 @@ class CubeRenderDisplay < Widget
         # Our objects
         @cube = Cube.new(-300, 0, 300, 100, COLOR_RED)
         @all_objects = [@cube]
+        #@all_objects = []
 
         @grid = GridDisplay.new(0, 0, 100, 20, 95)
         @grid.grid_x_offset = 10
@@ -442,20 +480,29 @@ class CubeRenderDisplay < Widget
         #@all_objects << Cube.new(-300, 0, -300, 100, COLOR_LIME)
         #@all_objects << Cube.new(50, 0, 0, 50, COLOR_AQUA)
 
+        x = -1000
+        while x < 1050
+            z = -500
+            while z < 9010
+                @all_objects << FloorTile.new(x, z, 200)
+                z = z + 200
+            end 
+            x = x + 200
+        end
         # Darren
         # Floor lines. Floor is y=0, because y is really height
         x = -1000
         while x < 1050
             x_axis_line = ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 8900), COLOR_WHITE)
             @x_axis_lines << x_axis_line
-            @all_objects << x_axis_line
+            #@all_objects << x_axis_line
             x = x + 100
         end
         z = -500
         while z < 9010
             z_axis_line = ThreeDLine.new(ThreeDPoint.new(-1000, 0, z), ThreeDPoint.new(1000, 0, z), COLOR_PINK)
             @z_axis_lines << z_axis_line
-            @all_objects << z_axis_line
+            #@all_objects << z_axis_line
             z = z + 100
         end
 
@@ -560,8 +607,8 @@ class CubeRenderDisplay < Widget
 
     def render
         Gosu.translate(@offset_x, @offset_y) do
-            @center_cube.render
-            @dir_cube.render
+            #@center_cube.render
+            #@dir_cube.render
 
             modify do |n|
                 if n.is_behind_us 
@@ -573,9 +620,9 @@ class CubeRenderDisplay < Widget
             end
 
             # TEMP so it is easier to see center cube
-            @z_axis_lines.each do |z_axis_line|
-                WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
-            end
+            #@z_axis_lines.each do |z_axis_line|
+            #    WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
+            #end
 
             # TODO draw the x axis line numbers
             #@x_axis_lines.each do |x_axis_line|
@@ -587,14 +634,48 @@ class CubeRenderDisplay < Widget
 
     def handle_update update_count, mouse_x, mouse_y
         @x_axis_lines.each do |x_axis_line|
-            x_axis_line.a.z = $center_z - 300
-            if x_axis_line.a.z < -500
-                x_axis_line.a.z = -500
+            if @dir_quad == QUAD_N
+                x_axis_line.a.z = $center_z - 300
+                x_axis_line.b.z = $center_z + 9000
+            elsif @dir_quad == QUAD_NE
+                x_axis_line.a.z = $center_z - 300
+                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
+                x_axis_line.b.z = $center_z + 5000
+            elsif @dir_quad == QUAD_NW
+                x_axis_line.a.z = $center_z - 300
+                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
+                x_axis_line.b.z = $center_z + 5000
+            elsif @dir_quad == QUAD_S 
+                x_axis_line.a.z = $center_z - 9000
+                x_axis_line.b.z = $center_z + 300
+            elsif @dir_quad == QUAD_SE
+                x_axis_line.a.z = $center_z - 5000
+                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
+                x_axis_line.b.z = $center_z + 800
+            elsif @dir_quad == QUAD_SW
+                x_axis_line.a.z = $center_z - 5000
+                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
+                x_axis_line.b.z = $center_z + 800
+            elsif @dir_quad == QUAD_W or @dir_quad == QUAD_E
+                x_axis_line.a.z = $center_z - 800
+                x_axis_line.b.z = $center_z + 800
+            else 
+                puts "ERROR: Invalid directional quadrant #{@dir_quad}."
+            end 
+
+            if x_axis_line.a.z < WORLD_Z_START
+                x_axis_line.a.z = WORLD_Z_START
+            elsif x_axis_line.a.z > WORLD_Z_END
+                x_axis_line.a.z = WORLD_Z_END
             end
-            #puts "Set x axis line z to #{x_axis_line}"
+            if x_axis_line.b.z < WORLD_Z_START
+                x_axis_line.b.z = WORLD_Z_START
+            elsif x_axis_line.b.z > WORLD_Z_END
+                x_axis_line.b.z = WORLD_Z_END
+            end
         end
-        # TODO I guess we need to do the same thing for z axis lines because
-        #      when you rotate, at some point they are not visible
+
+
         calc_points
         @text_1.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @text_2.label = camera_text
@@ -624,7 +705,7 @@ class CubeRenderDisplay < Widget
         "Angle: #{@cube.angle_x.round(2)}, #{@cube.angle_y.round(2)}, #{@cube.angle_z.round(2)}"
     end 
     def dir_text 
-        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}"
+        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}"
     end 
     def axis_text 
         "X Axis: #{@x_axis_lines[0].a.z} - #{@x_axis_lines[0].b.z}"
@@ -639,6 +720,48 @@ class CubeRenderDisplay < Widget
         end
         "" 
     end
+
+
+    def determine_directional_quadrant
+        if @all_objects.nil?
+            @dir_quad = QUAD_N
+            return
+        end 
+        if @all_objects.empty? 
+            @dir_quad = QUAD_N 
+            return
+        end
+        angle_y = @all_objects[0].angle_y
+        angle_y = angle_y % DEG_360 
+        if angle_y < DEG_22_5
+            @dir_quad = QUAD_N
+        elsif angle_y < DEG_67_5 
+            @dir_quad = QUAD_NE
+        elsif angle_y < DEG_112_5 
+            @dir_quad = QUAD_E
+        elsif angle_y < DEG_157_5 
+            @dir_quad = QUAD_SE
+        elsif angle_y < DEG_202_5 
+            @dir_quad = QUAD_S
+        elsif angle_y < DEG_247_5 
+            @dir_quad = QUAD_SW
+        elsif angle_y < DEG_292_5
+            @dir_quad = QUAD_W 
+        elsif angle_y < DEG_337_5 
+            @dir_quad = QUAD_NW 
+        else 
+            @dir_quad = QUAD_N
+        end
+        #QUAD_NW = 1
+        #QUAD_N = 2
+        #QUAD_NE = 3
+        #QUAD_E = 4
+        #QUAD_SE = 5
+        #QUAD_S = 6
+        #QUAD_SW = 7
+        #QUAD_W = 8
+    end 
+
     def handle_key_held_down id, mouse_x, mouse_y
         if @continuous_movement
             handle_movement id, mouse_x, mouse_y 
@@ -658,18 +781,21 @@ class CubeRenderDisplay < Widget
                 n.angle_z = 0
             end
         elsif id == Gosu::KbUp
-            # TODO this needs to delegate to the objects
-            modify do |n|
-                n.scale = n.scale + @scaling_speed
-            end
+            @speed = @speed + 5
+            #modify do |n|
+            #    n.scale = n.scale + @scaling_speed
+            #end
         elsif id == Gosu::KbDown
-            # TODO this needs to delegate to the objects
-            modify do |n|
-                n.scale = n.scale - @scaling_speed
-                if n.scale < 0 
-                    n.scale = 0.001
-                end
+            @speed = @speed + 5
+            if @speed < 5
+                @speed = 5
             end
+            #modify do |n|
+            #    n.scale = n.scale - @scaling_speed
+            #    if n.scale < 0 
+            #        n.scale = 0.001
+            #    end
+            #end
         end
     end
 
@@ -738,6 +864,7 @@ class CubeRenderDisplay < Widget
             # Now calculate the new dir_x, dir_y
             @dir_x = Math.cos(angle_y)
             @dir_y = Math.sin(angle_y)
+            determine_directional_quadrant
             #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         elsif id == Gosu::KbJ
             modify do |n|
@@ -747,6 +874,7 @@ class CubeRenderDisplay < Widget
             # Now calculate the new dir_x, dir_y
             @dir_x = Math.cos(angle_y)
             @dir_y = Math.sin(angle_y)
+            determine_directional_quadrant
             #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         #
         # not really used
