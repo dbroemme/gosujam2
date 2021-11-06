@@ -612,7 +612,7 @@ class CubeRenderDisplay < Widget
     end
 
     def camera_text 
-        "Camera: #{$camera_x}, #{$camera_y}, #{$camera_z}" 
+        "Camera: #{$camera_x.round(2)}, #{$camera_y.round(2)}, #{$camera_z.round(2)}" 
     end 
     def center_text 
         "Center: #{$center_x.round}, #{$center_y.round}, #{$center_z.round}" 
@@ -705,11 +705,31 @@ class CubeRenderDisplay < Widget
         # Primary movement keys
         #
         elsif id == Gosu::KbI
-            $camera_z = $camera_z - @speed
-            $center_z = $center_z + @speed
+            movement_x = @dir_y * @speed
+            movement_z = @dir_x * @speed
+
+            #$camera_z = $camera_z - @speed
+            #$center_z = $center_z + @speed
+
+            $camera_x = $camera_x - movement_x
+            $center_x = $center_x + movement_x
+
+            $camera_z = $camera_z - movement_z
+            $center_z = $center_z + movement_z
+
         elsif id == Gosu::KbK
-            $camera_z = $camera_z + @speed
-            $center_z = $center_z - @speed
+            movement_x = @dir_y * @speed
+            movement_z = @dir_x * @speed
+
+            #$camera_z = $camera_z + @speed
+            #$center_z = $center_z - @speed
+
+            $camera_x = $camera_x + movement_x
+            $center_x = $center_x - movement_x
+
+            $camera_z = $camera_z + movement_z
+            $center_z = $center_z - movement_z
+
         elsif id == Gosu::KbL
             modify do |n|
                 n.angle_y = n.angle_y + 0.05
@@ -718,7 +738,7 @@ class CubeRenderDisplay < Widget
             # Now calculate the new dir_x, dir_y
             @dir_x = Math.cos(angle_y)
             @dir_y = Math.sin(angle_y)
-            puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
+            #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         elsif id == Gosu::KbJ
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
@@ -727,7 +747,7 @@ class CubeRenderDisplay < Widget
             # Now calculate the new dir_x, dir_y
             @dir_x = Math.cos(angle_y)
             @dir_y = Math.sin(angle_y)
-            puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
+            #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         #
         # not really used
         #
