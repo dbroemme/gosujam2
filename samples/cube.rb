@@ -236,7 +236,7 @@ class ThreeDLine < ThreeDObject
         #    puts "line #{a.x}, #{a.z} to #{b.x}, #{b.z} drawn at #{@render_points[0].x}, #{@render_points[0].y} to #{@render_points[1].x}, #{@render_points[1].y}"
         #end
         #$debug_once = true
-        draw_line(@render_points, 0, 1, 10)
+        draw_line(@render_points, 0, 1, 9)
     end 
 
     def to_s 
@@ -316,7 +316,7 @@ class Wall < ThreeDObject
 
     def reset 
         reset_angle_and_scale
-        puts "Creating wall anchored at bottom left #{@x}, #{@z}"
+        #puts "Creating wall anchored at bottom left #{@x}, #{@z}"
         @model_points << ThreeDPoint.new(@x,           @y,           @z)
         @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
         @model_points << ThreeDPoint.new(@x + @length, @y - @height, @z)
@@ -538,7 +538,7 @@ class CubeRenderDisplay < Widget
         modify do |n|
             n.calc_points
         end
-        @center_cube = Cube.new($center_x + 25, $center_y, $center_z, 25, COLOR_LIGHT_BLUE)
+        @center_cube = Cube.new($center_x + 12.5, $center_y, $center_z + 12.5, 25, COLOR_LIGHT_BLUE)
         @center_cube.calc_points
     end 
 
@@ -669,10 +669,10 @@ class CubeRenderDisplay < Widget
         #    $camera_y = $camera_y + @speed
 
 
-        elsif id == Gosu::KbJ
+        elsif id == Gosu::KbU
             $camera_x = $camera_x + @speed
             $center_x = $center_x - @speed
-        elsif id == Gosu::KbL
+        elsif id == Gosu::KbO
             $camera_x = $camera_x - @speed
             $center_x = $center_x + @speed
         elsif id == Gosu::KbI
@@ -681,11 +681,11 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbK
             $camera_z = $camera_z + @speed
             $center_z = $center_z - @speed
-        elsif id == Gosu::KbU
+        elsif id == Gosu::KbL
             modify do |n|
                 n.angle_y = n.angle_y + 0.05
             end
-        elsif id == Gosu::KbO
+        elsif id == Gosu::KbJ
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
             end
