@@ -67,7 +67,13 @@ class ThreeDObject
         (0..@render_points.size-1).each do |n|
             if @render_points[n].y < -10
                 if self.is_a? ThreeDLine
-                    puts "Not displaying #{self.to_s}"
+                    #puts "Not displaying #{self.to_s}"
+                end
+                if self.is_a? Wall 
+                    #puts "Not drawing a wall"
+                    if self.model_points[0].x == 900 
+                        puts "Not drawing wall [#{n}]: #{self.model_points[n]}  ->   #{self.render_points[n]}"
+                    end
                 end
                 @visible = false
                 return true 
@@ -339,12 +345,13 @@ end
 
 class Wall < ThreeDObject
     # The x, y, z coordinates are for the upper left corner
-    def initialize(x, z, length, img = "./media/tile5.png")
+    def initialize(x, z, width = 100, length = 100, img = "./media/tile5.png")
         super()
         @x = x 
         @y = 0
         @z = z
-        @length = length    # right now this only supports square, so one length
+        @length = length
+        @width = width
         @height = 100
         reset
         @img = Gosu::Image.new(img)
@@ -353,14 +360,14 @@ class Wall < ThreeDObject
     def reset 
         reset_angle_and_scale
         #puts "Creating wall anchored at bottom left #{@x}, #{@z}"
-        @model_points << ThreeDPoint.new(@x,           @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @length, @y - @height, @z)
-        @model_points << ThreeDPoint.new(@x,           @y - @height, @z)
-        @model_points << ThreeDPoint.new(@x,           @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x + @length, @y - @height, @z + @length)
-        @model_points << ThreeDPoint.new(@x,           @y - @height, @z + @length)
+        @model_points << ThreeDPoint.new(@x,          @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @width, @y,           @z)
+        @model_points << ThreeDPoint.new(@x + @width, @y - @height, @z)
+        @model_points << ThreeDPoint.new(@x,          @y - @height, @z)
+        @model_points << ThreeDPoint.new(@x,          @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x + @width, @y,           @z + @length)
+        @model_points << ThreeDPoint.new(@x + @width, @y - @height, @z + @length)
+        @model_points << ThreeDPoint.new(@x,          @y - @height, @z + @length)
     end
 
     def render 
@@ -473,7 +480,22 @@ class CubeRenderDisplay < Widget
         @grid = GridDisplay.new(0, 0, 100, 20, 95)
         @grid.grid_x_offset = 10
         @grid.grid_y_offset = 5
-        instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+        #instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+        # TODO Darren
+        x = -1000
+        while x < 550
+            @all_objects << Wall.new(x, 8900, 500, 100)   # far wall
+            @all_objects << Wall.new(x, -500, 500, 100)   # wall behind us
+            x = x + 500
+        end
+
+        # Side walls
+        z = -500
+        while z < 8550
+            @all_objects << Wall.new(-1000, z, 100, 500)    # left wall
+            @all_objects << Wall.new(900, z, 100, 500)      # right wall
+            z = z + 500
+        end
 
         #@all_objects << Cube.new(300, 0, 300, 100, COLOR_GREEN)
         #@all_objects << Cube.new(300, 0, -300, 100, COLOR_BLUE)
@@ -481,7 +503,7 @@ class CubeRenderDisplay < Widget
         #@all_objects << Cube.new(50, 0, 0, 50, COLOR_AQUA)
 
         x = -1000
-        while x < 1050
+        while x < 950
             z = -500
             while z < 9010
                 @all_objects << FloorTile.new(x, z, 200)
@@ -534,7 +556,7 @@ class CubeRenderDisplay < Widget
                 #if char == "B"
                 #    img = Brick.new(@blue_brick)
                 if char == "W" or char == "5"
-                    img = Wall.new(grid_x * 100, grid_y * 100, 100)
+                    img = Wall.new(grid_x * 100, grid_y * 100)
                 #elsif char == "Y" or char == "18"
                 #    img = Dot.new(@yellow_dot)
                 #elsif char == "G" or char == "19"
@@ -786,7 +808,7 @@ class CubeRenderDisplay < Widget
             #    n.scale = n.scale + @scaling_speed
             #end
         elsif id == Gosu::KbDown
-            @speed = @speed + 5
+            @speed = @speed - 5
             if @speed < 5
                 @speed = 5
             end
@@ -800,18 +822,18 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_movement id, mouse_x, mouse_y 
-        if id == Gosu::KbA
-            @cube.move_left
-        elsif id == Gosu::KbD
-            @cube.move_right
-        elsif id == Gosu::KbQ
-            @cube.move_up
-        elsif id == Gosu::KbE
-            @cube.move_down
-        elsif id == Gosu::KbW
-            @cube.move_towards
-        elsif id == Gosu::KbS
-            @cube.move_away
+        #if id == Gosu::KbA
+        #    @cube.move_left
+        #elsif id == Gosu::KbD
+        #    @cube.move_right
+        #elsif id == Gosu::KbQ
+        #    @cube.move_up
+        #elsif id == Gosu::KbE
+        #    @cube.move_down
+        #elsif id == Gosu::KbW
+        #    @cube.move_towards
+        #elsif id == Gosu::KbS
+        #    @cube.move_away
         #elsif id == Gosu::KbU              # change camera elevation later, don't need it now
         #    $camera_y = $camera_y - @speed
         #elsif id == Gosu::KbO              # change camera elevation later, don't need it now
@@ -820,7 +842,7 @@ class CubeRenderDisplay < Widget
         #
         # Lateral movement. We aren't really using this righ tnow
         #
-        elsif id == Gosu::KbU
+        if id == Gosu::KbU
             $camera_x = $camera_x + @speed
             $center_x = $center_x - @speed
         elsif id == Gosu::KbO
@@ -830,7 +852,7 @@ class CubeRenderDisplay < Widget
         #
         # Primary movement keys
         #
-        elsif id == Gosu::KbI
+        elsif id == Gosu::KbW
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
@@ -843,7 +865,7 @@ class CubeRenderDisplay < Widget
             $camera_z = $camera_z - movement_z
             $center_z = $center_z + movement_z
 
-        elsif id == Gosu::KbK
+        elsif id == Gosu::KbS
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
@@ -856,7 +878,7 @@ class CubeRenderDisplay < Widget
             $camera_z = $camera_z + movement_z
             $center_z = $center_z - movement_z
 
-        elsif id == Gosu::KbL
+        elsif id == Gosu::KbD
             modify do |n|
                 n.angle_y = n.angle_y + 0.05
             end
@@ -866,7 +888,7 @@ class CubeRenderDisplay < Widget
             @dir_y = Math.sin(angle_y)
             determine_directional_quadrant
             #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
-        elsif id == Gosu::KbJ
+        elsif id == Gosu::KbA
             modify do |n|
                 n.angle_y = n.angle_y - 0.05
             end
