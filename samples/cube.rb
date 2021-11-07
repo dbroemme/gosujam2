@@ -565,7 +565,10 @@ class CubeRenderDisplay < Widget
         @speed = 5
         @mode = MODE_ISOMETRIC
         @continuous_movement = true
-        @scaling_speed = 0.05
+
+        @raycast_x = 640
+        @raycast_y_start = nil 
+        @raycast_y_end = nil
 
         # Axis lines
         #@x_axis = ThreeDLine.new(ThreeDPoint.new(-1000, 0, 0), ThreeDPoint.new(1000, 0, 0))
@@ -583,13 +586,25 @@ class CubeRenderDisplay < Widget
         puts "---------"
         (0..94).each do |y|
             str = ""
-            (0..19).each do |x|
+            (0..20).each do |x|
                 str = "#{str}#{@world_map[x][y]}"
             end 
             puts str
         end
 
-        # TODO Darren
+        puts "Raycast Map"
+        puts "-----------"
+        (0..20).each do |y|
+            str = ""
+            (0..94).each do |x|
+                str = "#{str}#{@raycast_map[x][y]}"
+            end 
+            puts str
+        end
+
+        @raycaster = RayCaster.new(@raycast_map, GAME_WIDTH, GAME_HEIGHT)
+
+        # Near and far walls
         x = -1000
         while x < 550
             @all_objects << Wall.new(x, 8900, 500, 100)   # far wall
@@ -615,7 +630,7 @@ class CubeRenderDisplay < Widget
             z = -500
             while z < 8890
                 @all_objects << FloorTile.new(x, z, 200)
-                puts "creat a floor tile at z #{z}"
+                #puts "creat a floor tile at z #{z}"
                 z = z + 200
             end 
             x = x + 200
@@ -659,6 +674,11 @@ class CubeRenderDisplay < Widget
                 0
             end 
         end 
+        @raycast_map = Array.new(grid.grid_height) do |y|
+            Array.new(grid.grid_width) do |x|
+                0
+            end 
+        end 
         grid.clear_tiles
         grid_y = 89
         grid_x = -10
@@ -676,8 +696,9 @@ class CubeRenderDisplay < Widget
                 #if char == "B"
                 #    img = Brick.new(@blue_brick)
                 if char == "5"
-                    puts "array #{array_grid_x}, #{array_grid_y}"
+                    puts "Array #{array_grid_x},#{array_grid_y} -> 5"
                     @world_map[array_grid_x][array_grid_y] = 5
+                    @raycast_map[array_grid_y][array_grid_x] = 5
                     # ignore
                     #img = Wall.new(grid_x * 100, grid_y * 100)
                 #elsif char == "Y" or char == "18"
@@ -764,6 +785,7 @@ class CubeRenderDisplay < Widget
                 end
             end
 
+
             # TEMP so it is easier to see center cube
             #@z_axis_lines.each do |z_axis_line|
             #    WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
@@ -775,6 +797,14 @@ class CubeRenderDisplay < Widget
             #    WadsConfig.instance.current_theme.font.draw_text("#{x_axis_line.a.x}", x_axis_line.render_points[1].x, -x_axis_line.render_points[1].x, 10, 1, 1, COLOR_WHITE)
             #end
         end 
+
+        # Temp draw what the raycast shows for the center x pixel
+        @raycast_x = 640
+        if @raycast_y_start.nil?
+            # do nothing
+        else 
+            Gosu::draw_line @raycast_x, @raycast_y_start, COLOR_AQUA, @raycast_x, @raycast_y_end, COLOR_AQUA, 20
+        end
     end
 
     def handle_update update_count, mouse_x, mouse_y
@@ -933,20 +963,40 @@ class CubeRenderDisplay < Widget
             end
         elsif id == Gosu::KbUp
             @speed = @speed + 5
-            #modify do |n|
-            #    n.scale = n.scale + @scaling_speed
-            #end
         elsif id == Gosu::KbDown
             @speed = @speed - 5
             if @speed < 5
                 @speed = 5
             end
-            #modify do |n|
-            #    n.scale = n.scale - @scaling_speed
-            #    if n.scale < 0 
-            #        n.scale = 0.001
-            #    end
-            #end
+        elsif id == Gosu::KbE
+            puts "------------"
+            puts "Lets raycast"
+            # Send a ray the direction we are looking (direction vector)
+            # and see what it hits
+            x = @raycast_x  # the middle pixel
+
+            plane_x = 0     # the 2d raycaster version of camera plane
+            plane_y = 0.66 
+
+            tile_x = @grid.determine_grid_x($center_x)
+            tile_y = @grid.determine_grid_y($center_z)
+            adj_tile_x = tile_x + @grid.grid_x_offset
+            adj_tile_y = tile_y + @grid.grid_y_offset
+
+            puts "We are at #{tile_x}, #{tile_y}"
+
+            #drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, @posX, @posY, @dirX, @dirY, @planeX, @planeY)
+            drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
+            adj_map_x = mapX - @grid.grid_y_offset
+            adj_map_y = mapY - @grid.grid_x_offset
+            puts "map_x/y:  #{mapY}, #{mapX}"
+            puts "map_x/y:  #{adj_map_y}, #{adj_map_x}   side: #{side}    drawStart/End: #{drawStart}, #{drawEnd}"
+            # choose wall color
+            #color = nil   # rgb
+            at_ray = @raycast_map[mapX][mapY]
+            puts "At that spot: #{at_ray}"
+            @raycast_y_start = drawStart
+            @raycast_y_end = drawEnd
         end
     end
 
@@ -994,8 +1044,8 @@ class CubeRenderDisplay < Widget
 
                 $camera_z = $camera_z - movement_z
                 $center_z = proposed_z
-            else 
-                puts "Hit a wall: #{proposed}"
+            #else 
+            #    puts "Hit a wall: #{proposed}"
             end
 
         elsif id == Gosu::KbS
@@ -1011,8 +1061,8 @@ class CubeRenderDisplay < Widget
 
                 $camera_z = $camera_z + movement_z
                 $center_z = proposed_z
-            else 
-                puts "Hit a wall: #{proposed}"
+            #else 
+            #    puts "Hit a wall: #{proposed}"
             end
 
         elsif id == Gosu::KbD
@@ -1038,32 +1088,31 @@ class CubeRenderDisplay < Widget
         #
         # not really used
         #
-        elsif id == Gosu::KbF
-            modify do |n|
-                n.angle_x = n.angle_x - 0.05
-            end
-        elsif id == Gosu::KbH
-            modify do |n|
-                n.angle_x = n.angle_x + 0.05
-            end
-        elsif id == Gosu::KbR
-            modify do |n|
-                n.angle_y = n.angle_y - 0.05
-            end
-        elsif id == Gosu::KbY
-            modify do |n|
-                n.angle_y = n.angle_y + 0.05
-            end
-        elsif id == Gosu::KbT
-            modify do |n|
-                n.angle_z = n.angle_z - 0.05
-            end
-        elsif id == Gosu::KbG
-            modify do |n|
-                n.angle_z = n.angle_z + 0.05
-            end
-
-        elsif id == Gosu::KbM 
+        #elsif id == Gosu::KbF
+        #    modify do |n|
+        #        n.angle_x = n.angle_x - 0.05
+        #    end
+        #elsif id == Gosu::KbH
+        #    modify do |n|
+        #        n.angle_x = n.angle_x + 0.05
+        #    end
+        #elsif id == Gosu::KbR
+        #    modify do |n|
+        #        n.angle_y = n.angle_y - 0.05
+        #    end
+        #elsif id == Gosu::KbY
+        #    modify do |n|
+        #        n.angle_y = n.angle_y + 0.05
+        #    end
+        #elsif id == Gosu::KbT
+        #    modify do |n|
+        #        n.angle_z = n.angle_z - 0.05
+        #    end
+        #elsif id == Gosu::KbG
+        #    modify do |n|
+        #        n.angle_z = n.angle_z + 0.05
+        #    end
+        #elsif id == Gosu::KbM 
             #delta_x = Math.cos(DEG_45)
             #delta_z = Math.sin(DEG_45)
             #amount_x = delta_x * 800.to_f
@@ -1073,20 +1122,19 @@ class CubeRenderDisplay < Widget
             #$center_z = $center_z + amount_z
             #modify do |n|
             #    n.angle_y = DEG_45
-            #end
-            
-            $center_z = -300
-        elsif id == Gosu::KbPeriod
-            $center_x = $center_x + 10
-            $center_z = $center_z + 10
-            modify do |n|
-                n.angle_y = n.angle_y - 0.05
-            end
+            #end   
+        #    $center_z = -300
+        #elsif id == Gosu::KbPeriod
+        #    $center_x = $center_x + 10
+        #    $center_z = $center_z + 10
+        #    modify do |n|
+        #        n.angle_y = n.angle_y - 0.05
+        #    end
         end
     end
 
     def handle_key_up id, mouse_x, mouse_y
-        # nothing to do here
+        # nothing to do
     end
 
     def handle_mouse_down mouse_x, mouse_y
