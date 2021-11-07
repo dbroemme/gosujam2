@@ -14,6 +14,8 @@ module RdiaGames
     ARG_SCALE = "scale"
     ARG_DELAY = "delay"
     ARG_PROGRESS_AMOUNT = "progress_amount"
+    ARG_X_OFFSET = "x_offset"
+    ARG_Y_OFFSET = "y_offset"
 
     #
     # The WadsApp class provides a simple starting point to quickly build a native

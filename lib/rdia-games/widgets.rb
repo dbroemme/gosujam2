@@ -484,6 +484,16 @@ module RdiaGames
             if args[ARG_SCALE]
                 @scale = args[ARG_SCALE]
             end
+            if args[ARG_X_OFFSET]
+                @grid_x_offset = args[ARG_X_OFFSET]
+            else 
+                @grid_x_offset = 0
+            end
+            if args[ARG_Y_OFFSET]
+                @grid_y_offset = args[ARG_Y_OFFSET]
+            else 
+                @grid_y_offset = 0
+            end
             @tile_size = tile_size * @scale
             @grid_width = grid_width 
             @grid_height = grid_height
@@ -495,8 +505,6 @@ module RdiaGames
             end
             clear_tiles
             @display_grid = false
-            @grid_x_offset = 0
-            @grid_y_offset = 0
         end
 
         def clear_tiles

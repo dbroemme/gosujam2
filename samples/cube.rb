@@ -20,6 +20,109 @@ MODE_REAL_THREE_D = "real3d"
 AXIS_BEGIN = -500
 AXIS_END = 500
 
+class RayCaster 
+    def initialize(world_map, screen_width, screen_height)
+        @world_map = world_map
+        @w = screen_width
+        @h = screen_height
+    end 
+
+    def ray(x, posX, posY, dirX, dirY, planeX, planeY)
+        # calculate ray position and direction
+        cameraX = (2 * (x / @w.to_f)) - 1;   # x-coordinate in camera space
+        rayDirX = dirX + (planeX * cameraX)
+        rayDirY = dirY + (planeY * cameraX)
+        # which box of the map we're in
+        mapX = posX.to_i
+        mapY = posY.to_i
+
+        # length of ray from current position to next x or y-side: sideDistX, sideDistY
+          
+        # length of ray from one x or y-side to next x or y-side
+        # these are derived as:
+        # deltaDistX = sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX))
+        # deltaDistY = sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY))
+        # which can be simplified to abs(|rayDir| / rayDirX) and abs(|rayDir| / rayDirY)
+        # where |rayDir| is the length of the vector (rayDirX, rayDirY). Its length,
+        # unlike (dirX, dirY) is not 1, however this does not matter, only the
+        # ratio between deltaDistX and deltaDistY matters, due to the way the DDA
+        # stepping further below works. So the values can be computed as below.
+        # Division through zero is prevented, even though technically that's not
+        # needed in C++ with IEEE 754 floating point values.
+        deltaDistX = (rayDirX == 0) ? 1e30 : (1 / rayDirX).abs
+        deltaDistY = (rayDirY == 0) ? 1e30 : (1 / rayDirY).abs
+          
+        perpWallDist = nil    # double
+          
+        # what direction to step in x or y-direction (either +1 or -1)
+        stepX = nil    # int
+        stepY = nil    # int
+
+                  
+        hit = 0        # was there a wall hit? (int) (is this really a boolean)
+        side = nil     # was a NS or a EW wall hit? (int) (is this really a boolean)
+        # calculate step and initial sideDist
+        if rayDirX < 0
+            stepX = -1
+            sideDistX = (posX - mapX) * deltaDistX
+        else
+            stepX = 1
+            sideDistX = (mapX + 1.0 - posX) * deltaDistX
+        end
+        if rayDirY < 0
+            stepY = -1
+            sideDistY = (posY - mapY) * deltaDistY
+        else
+            stepY = 1;
+            sideDistY = (mapY + 1.0 - posY) * deltaDistY
+        end
+        # perform DDA
+        while hit == 0
+            # jump to next map square, either in x-direction, or in y-direction
+            if sideDistX < sideDistY
+                sideDistX += deltaDistX
+                mapX += stepX
+                side = 0
+            else
+                sideDistY += deltaDistY
+                mapY += stepY
+                side = 1
+            end
+            # Check if ray has hit a wall
+            if @world_map[mapX][mapY] > 0
+                hit = 1
+            end
+        end
+
+        # Calculate distance projected on camera direction. This is the shortest distance from the point where the wall is
+        # hit to the camera plane. Euclidean to center camera point would give fisheye effect!
+        # This can be computed as (mapX - posX + (1 - stepX) / 2) / rayDirX for side == 0, or same formula with Y
+        # for size == 1, but can be simplified to the code below thanks to how sideDist and deltaDist are computed:
+        # because they were left scaled to |rayDir|. sideDist is the entire length of the ray above after the multiple
+        # steps, but we subtract deltaDist once because one step more into the wall was taken above.
+        if side == 0
+            perpWallDist = (sideDistX - deltaDistX)
+        else
+            perpWallDist = (sideDistY - deltaDistY)
+        end
+
+        # Calculate height of line to draw on screen
+        lineHeight = (@h / perpWallDist).to_i
+
+        # calculate lowest and highest pixel to fill in current stripe
+        drawStart = ((-lineHeight / 2) + (@h / 2)).to_i
+        if drawStart < 0
+            drawStart = 0
+        end
+        drawEnd = ((lineHeight / 2) + (@h / 2)).to_i
+        if drawEnd >= @h
+            drawEnd = @h - 1
+        end
+        
+        [drawStart, drawEnd, mapX, mapY, side]
+    end
+end
+
 class ThreeDPoint
     attr_accessor :x
     attr_accessor :y 
@@ -477,10 +580,18 @@ class CubeRenderDisplay < Widget
         @all_objects = [@cube]
         #@all_objects = []
 
-        @grid = GridDisplay.new(0, 0, 100, 20, 95)
-        @grid.grid_x_offset = 10
-        @grid.grid_y_offset = 5
-        #instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+        @grid = GridDisplay.new(0, 0, 100, 20, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
+        instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+        puts "World Map"
+        puts "---------"
+        (0..94).each do |y|
+            str = ""
+            (0..19).each do |x|
+                str = "#{str}#{@world_map[x][y]}"
+            end 
+            puts str
+        end
+
         # TODO Darren
         x = -1000
         while x < 550
@@ -544,7 +655,12 @@ class CubeRenderDisplay < Widget
         add_child(@text_7)
     end 
 
-    def instantiate_elements(grid, all_objects, dsl)         
+    def instantiate_elements(grid, all_objects, dsl)
+        @world_map = Array.new(grid.grid_width) do |x|
+            Array.new(grid.grid_height) do |y|
+                0
+            end 
+        end 
         grid.clear_tiles
         grid_y = 89
         grid_x = -10
@@ -553,10 +669,18 @@ class CubeRenderDisplay < Widget
             while index < line.size
                 char = line[index..index+1].strip
                 img = nil
+                # set_tile is already using the grid offsets, but here
+                # we are directly creating a world map array so we need
+                # to use the same offsets
+                # So the Grid should probably do this, not here, but oh well
+                array_grid_x = grid_x + grid.grid_x_offset
+                array_grid_y = grid_y + grid.grid_y_offset
                 #if char == "B"
                 #    img = Brick.new(@blue_brick)
-                if char == "W" or char == "5"
-                    img = Wall.new(grid_x * 100, grid_y * 100)
+                if char == "5"
+                    @world_map[array_grid_x][array_grid_y] = 5
+                    # ignore
+                    #img = Wall.new(grid_x * 100, grid_y * 100)
                 #elsif char == "Y" or char == "18"
                 #    img = Dot.new(@yellow_dot)
                 #elsif char == "G" or char == "19"
@@ -589,7 +713,7 @@ class CubeRenderDisplay < Widget
                     # nothing to do
                 else
                     #puts "#{grid_x},#{grid_y}  =  #{char}"
-                    grid.set_tile(grid_x, grid_y, img)
+                    grid.set_tile(array_grid_x, array_grid_y, img)
                     all_objects << img
                 end
 
