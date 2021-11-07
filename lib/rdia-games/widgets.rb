@@ -526,7 +526,8 @@ module RdiaGames
             # visible area is static, and we don't need to consider
             # where the camera is for this component.
             delta_x = pixel_x - @x 
-            tile_x = (delta_x / @tile_size).to_i
+            tile_x = (delta_x / @tile_size).floor
+            #puts "Delta_x: #{delta_x} / #{@tile_size} = #{tile_x} "
             tile_x   
         end
 
@@ -535,7 +536,7 @@ module RdiaGames
             # visible area is static, and we don't need to consider
             # where the camera is for this component.
             delta_y = pixel_y - @y 
-            tile_y = (delta_y / @tile_size).to_i       
+            tile_y = (delta_y / @tile_size).floor      
             tile_y
         end
 

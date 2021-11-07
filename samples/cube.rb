@@ -170,13 +170,10 @@ class ThreeDObject
         (0..@render_points.size-1).each do |n|
             if @render_points[n].y < -10
                 if self.is_a? ThreeDLine
-                    #puts "Not displaying #{self.to_s}"
+                    #puts "Not displaying a line #{self.to_s}"
                 end
                 if self.is_a? Wall 
                     #puts "Not drawing a wall"
-                    if self.model_points[0].x == 900 
-                        puts "Not drawing wall [#{n}]: #{self.model_points[n]}  ->   #{self.render_points[n]}"
-                    end
                 end
                 @visible = false
                 return true 
@@ -580,7 +577,7 @@ class CubeRenderDisplay < Widget
         @all_objects = [@cube]
         #@all_objects = []
 
-        @grid = GridDisplay.new(0, 0, 100, 20, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
+        @grid = GridDisplay.new(0, 0, 100, 21, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
         instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
         puts "World Map"
         puts "---------"
@@ -602,9 +599,9 @@ class CubeRenderDisplay < Widget
 
         # Side walls
         z = -500
-        while z < 8550
+        while z < 8910
             @all_objects << Wall.new(-1000, z, 100, 500)    # left wall
-            @all_objects << Wall.new(900, z, 100, 500)      # right wall
+            @all_objects << Wall.new(1000, z, 100, 500)      # right wall
             z = z + 500
         end
 
@@ -616,8 +613,9 @@ class CubeRenderDisplay < Widget
         x = -1000
         while x < 950
             z = -500
-            while z < 9010
+            while z < 8890
                 @all_objects << FloorTile.new(x, z, 200)
+                puts "creat a floor tile at z #{z}"
                 z = z + 200
             end 
             x = x + 200
@@ -678,6 +676,7 @@ class CubeRenderDisplay < Widget
                 #if char == "B"
                 #    img = Brick.new(@blue_brick)
                 if char == "5"
+                    puts "array #{array_grid_x}, #{array_grid_y}"
                     @world_map[array_grid_x][array_grid_y] = 5
                     # ignore
                     #img = Wall.new(grid_x * 100, grid_y * 100)
@@ -753,7 +752,7 @@ class CubeRenderDisplay < Widget
 
     def render
         Gosu.translate(@offset_x, @offset_y) do
-            #@center_cube.render
+            @center_cube.render
             #@dir_cube.render
 
             modify do |n|
@@ -851,7 +850,7 @@ class CubeRenderDisplay < Widget
         "Angle: #{@cube.angle_x.round(2)}, #{@cube.angle_y.round(2)}, #{@cube.angle_z.round(2)}"
     end 
     def dir_text 
-        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}"
+        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}   grid: #{@grid.determine_grid_x($center_x)}, #{@grid.determine_grid_y($center_z)}"
     end 
     def axis_text 
         "X Axis: #{@x_axis_lines[0].a.z} - #{@x_axis_lines[0].b.z}"
@@ -867,6 +866,12 @@ class CubeRenderDisplay < Widget
         "" 
     end
 
+    def tile_at_proposed_grid(proposed_x, proposed_y) 
+        tile_x = @grid.determine_grid_x(proposed_x) + @grid.grid_x_offset
+        tile_y = @grid.determine_grid_y(proposed_y) + @grid.grid_y_offset
+        #puts "tile_x/y:  #{tile_x}, #{tile_y}"
+        @world_map[tile_x][tile_y]
+    end 
 
     def determine_directional_quadrant
         if @all_objects.nil?
@@ -980,27 +985,35 @@ class CubeRenderDisplay < Widget
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
-            #$camera_z = $camera_z - @speed
-            #$center_z = $center_z + @speed
+            proposed_x = $center_x + movement_x
+            proposed_z = $center_z + movement_z
+            proposed = tile_at_proposed_grid(proposed_x, proposed_z)
+            if proposed == 0 
+                $camera_x = $camera_x - movement_x
+                $center_x = proposed_x
 
-            $camera_x = $camera_x - movement_x
-            $center_x = $center_x + movement_x
-
-            $camera_z = $camera_z - movement_z
-            $center_z = $center_z + movement_z
+                $camera_z = $camera_z - movement_z
+                $center_z = proposed_z
+            else 
+                puts "Hit a wall: #{proposed}"
+            end
 
         elsif id == Gosu::KbS
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
-            #$camera_z = $camera_z + @speed
-            #$center_z = $center_z - @speed
+            proposed_x = $center_x - movement_x
+            proposed_z = $center_z - movement_z
+            proposed = tile_at_proposed_grid(proposed_x, proposed_z)
+            if proposed == 0 
+                $camera_x = $camera_x + movement_x
+                $center_x = proposed_x
 
-            $camera_x = $camera_x + movement_x
-            $center_x = $center_x - movement_x
-
-            $camera_z = $camera_z + movement_z
-            $center_z = $center_z - movement_z
+                $camera_z = $camera_z + movement_z
+                $center_z = proposed_z
+            else 
+                puts "Hit a wall: #{proposed}"
+            end
 
         elsif id == Gosu::KbD
             modify do |n|
