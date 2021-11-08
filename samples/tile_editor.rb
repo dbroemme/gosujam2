@@ -43,7 +43,7 @@ class TileEditorDisplay < Widget
         @diagonal_tileset = Gosu::Image.load_tiles("media/diagonaltiles.png", 16, 16, tileable: true)
 
         #@grid = GridDisplay.new(0, 0, 16, 50, 38, {ARG_SCALE => 2})
-        @grid = GridDisplay.new(0, 0, 16, 20, 95)
+        @grid = GridDisplay.new(0, 0, 16, 21, 95)
         instantiate_elements(File.readlines(board_file))
         add_child(@grid)
 
@@ -113,11 +113,10 @@ class TileEditorDisplay < Widget
         # Scrolling follows player
         # @camera_x = [[@cptn.x - WIDTH / 2, 0].max, @map.width * 50 - WIDTH].min
         # @camera_y = [[@cptn.y - HEIGHT / 2, 0].max, @map.height * 50 - HEIGHT].min 
-        #@camera_x = [[@center_x - (GAME_WIDTH.to_f / 2), 0].max, @grid.grid_width * 32 - GAME_WIDTH].min
-        #@camera_y = [[@center_y - (GAME_HEIGHT.to_f / 2), 0].max, @grid.grid_height * 32 - GAME_HEIGHT].min
-        #puts "#{@player.x}, #{@player.y}    Camera: #{@camera_x}, #{@camera_y}"
+        @camera_x = [[@center_x - (GAME_WIDTH.to_f / 2), 0].max, @grid.grid_width * 64 - GAME_WIDTH].min
+        @camera_y = [[@center_y - (GAME_HEIGHT.to_f / 2), 0].max, @grid.grid_height * 16 - GAME_HEIGHT].min
 
-        @current_mouse_text.label = "#{mouse_x}, #{mouse_y}"
+        @current_mouse_text.label = "cen: #{@center_x}, #{@center_y}  cam: #{@camera_x}, #{@camera_y}  mou: #{mouse_x}, #{mouse_y}   "
 
         if @mouse_dragging and @grid.contains_click(mouse_x, mouse_y)
             grid_x = @grid.determine_grid_x(mouse_x)
@@ -146,7 +145,7 @@ class TileEditorDisplay < Widget
         elsif id == Gosu::KbS
             @center_y = @center_y + @speed
         end
-        #puts "#{@player.x}, #{@player.y}    Camera: #{@camera_x}, #{@camera_y}   Tile: #{@grid.tile_at_absolute(@player.x, @player.y)}"
+        puts "moved center to #{@center_x}, #{@center_y}"
     end
 
     def handle_key_press id, mouse_x, mouse_y

@@ -668,6 +668,12 @@ class CubeRenderDisplay < Widget
         add_child(@text_7)
     end 
 
+    def add_to_maps(x, y, val)
+        puts "Array #{x},#{y} -> #{val}"
+        @world_map[x][y] = val
+        @raycast_map[y][x] = val
+    end 
+
     def instantiate_elements(grid, all_objects, dsl)
         @world_map = Array.new(grid.grid_width) do |x|
             Array.new(grid.grid_height) do |y|
@@ -696,11 +702,20 @@ class CubeRenderDisplay < Widget
                 #if char == "B"
                 #    img = Brick.new(@blue_brick)
                 if char == "5"
-                    puts "Array #{array_grid_x},#{array_grid_y} -> 5"
-                    @world_map[array_grid_x][array_grid_y] = 5
-                    @raycast_map[array_grid_y][array_grid_x] = 5
-                    # ignore
+                    # ignore 5 because we manually constructed the wall using bigger chunks
+                    add_to_maps(array_grid_x, array_grid_y, 5)
                     #img = Wall.new(grid_x * 100, grid_y * 100)
+                elsif char == "18"
+                    add_to_maps(array_grid_x, array_grid_y, 18)
+                    img = Wall.new(grid_x * 100, grid_y * 100, 100, 100, "./media/tile18.png")
+                end
+                
+                if not img.nil?
+                    puts "#{grid_x},#{grid_y}  =  #{char}"
+                    grid.set_tile(grid_x, grid_y, img)
+                    all_objects << img
+                end
+
                 #elsif char == "Y" or char == "18"
                 #    img = Dot.new(@yellow_dot)
                 #elsif char == "G" or char == "19"
@@ -727,15 +742,7 @@ class CubeRenderDisplay < Widget
                 #elsif char.match?(/[[:digit:]]/)
                 #    tile_index = char.to_i
                 #    img = BackgroundArea.new(@tileset[tile_index])
-                end
-                
-                if img.nil?
-                    # nothing to do
-                else
-                    #puts "#{grid_x},#{grid_y}  =  #{char}"
-                    grid.set_tile(array_grid_x, array_grid_y, img)
-                    all_objects << img
-                end
+
 
                 grid_x = grid_x + 1
                 index = index + 2

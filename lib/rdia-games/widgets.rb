@@ -551,9 +551,9 @@ module RdiaGames
                 raise "Cannot set tile at negative numbers #{adjusted_tile_x}, #{adjusted_tile_y}"
             end
             if adjusted_tile_x >= @grid_width
-                raise "Cannot set tile at x #{adjusted_tile_x}, max width is #{@grid_width - 1}"
+                raise "Cannot set tile at x #{adjusted_tile_x}, max width index is #{@grid_width - 1}"
             elsif adjusted_tile_y >= @grid_height
-                raise "Cannot set tile at y #{adjusted_tile_y}, max height is #{@grid_height - 1}"
+                raise "Cannot set tile at y #{adjusted_tile_y}, max height index is #{@grid_height - 1}"
             end
             if widget.is_a? Widget
                 widget.x = relative_x(grid_to_relative_pixel(adjusted_tile_x))
