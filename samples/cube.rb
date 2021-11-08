@@ -186,6 +186,31 @@ class ThreeDObject
         false
     end
 
+    def a
+        @render_points[0]
+    end 
+    def b
+        @render_points[1]
+    end 
+    def c
+        @render_points[2]
+    end 
+    def d 
+        @render_points[3]
+    end 
+    def e
+        @render_points[4]
+    end 
+    def f
+        @render_points[5]
+    end 
+    def g
+        @render_points[6]
+    end 
+    def h
+        @render_points[7]
+    end
+
     def clear_points 
         @model_points = []
         @render_points = []
@@ -411,14 +436,6 @@ class Cube < ThreeDObject
     end
 
     def render 
-        a = @render_points[0]
-        b = @render_points[1]
-        c = @render_points[2]
-        d = @render_points[3]
-        e = @render_points[4]
-        f = @render_points[5]
-        g = @render_points[6]
-        h = @render_points[7]
 
         # TODO figure out which of these faces are not visible
         #      what direction are we facing relative to this cube
@@ -455,6 +472,7 @@ class Wall < ThreeDObject
         @height = 100
         reset
         @img = Gosu::Image.new(img)
+        @border_color = COLOR_WHITE
     end 
 
     def reset 
@@ -479,28 +497,63 @@ class Wall < ThreeDObject
         f = @render_points[5]
         g = @render_points[6]
         h = @render_points[7]
+        
 
-        # TODO figure out which of these faces are not visible
-        #      what direction are we facing relative to this cube
-        #      can raytracing help?
-        draw_quad([a, b, c, d])    # front
-        draw_square([a, b, c, d], COLOR_WHITE)
+        draw_top 
+         
+        if $center_z < @z
+            draw_front
+            if $center_x > @x 
+                draw_right_side 
+            else 
+                draw_left_side 
+            end
+        else
+            draw_back
+            if $center_x < @x 
+                draw_right_side 
+            else 
+                draw_left_side 
+            end
+        end
+        
 
-        draw_quad([b, f, g, c])    # right side
-        draw_square([b, f, g, c], COLOR_WHITE)
+        
 
-        draw_quad([d, h, g, c])    # top
-        draw_square([d, h, g, c], COLOR_WHITE)
+        
 
-        #draw_quad([a, e, h, d])   # left side
-        #draw_square([a, e, h, d], COLOR_WHITE)
-
-        #draw_quad([e, f, g, h])   # back     
-        #draw_square([e, f, g, h], COLOR_WHITE)
-
-        #draw_quad([a, e, f, b])   # bottom   Normally we never draw the bottom
-        #draw_square([a, e, f, b], COLOR_WHITE)
     end 
+
+    def draw_front 
+        draw_quad([a, b, c, d])
+        draw_square([a, b, c, d], @border_color)
+    end
+
+    def draw_back 
+        draw_quad([e, f, g, h])    
+        draw_square([e, f, g, h], @border_color)
+    end
+
+    def draw_right_side 
+        draw_quad([b, f, g, c])
+        draw_square([b, f, g, c], @border_color)
+    end 
+
+    def draw_left_side
+        draw_quad([a, e, h, d])
+        draw_square([a, e, h, d], @border_color)
+    end 
+
+    def draw_top 
+        draw_quad([d, h, g, c])
+        draw_square([d, h, g, c], @border_color)
+    end 
+
+    # Note in 2.5D this would never really get used
+    def draw_bottom 
+        draw_quad([a, e, f, b])  
+        draw_square([a, e, f, b], COLOR_WHITE)
+    end
 end
 
 class CubeRender < RdiaGame
@@ -806,12 +859,17 @@ class CubeRenderDisplay < Widget
         end 
 
         # Temp draw what the raycast shows for the center x pixel
-        @raycast_x = 640
-        if @raycast_y_start.nil?
-            # do nothing
-        else 
-            Gosu::draw_line @raycast_x, @raycast_y_start, COLOR_AQUA, @raycast_x, @raycast_y_end, COLOR_AQUA, 20
+        if @raycast_lines
+            @raycast_lines.each do |ray_line|
+                ray_line.draw 
+            end 
         end
+        #@raycast_x = 640
+        #if @raycast_y_start.nil?
+            # do nothing
+        #else 
+        #    Gosu::draw_line @raycast_x, @raycast_y_start, COLOR_AQUA, @raycast_x, @raycast_y_end, COLOR_AQUA, 20
+        #end
     end
 
     def handle_update update_count, mouse_x, mouse_y
@@ -872,6 +930,9 @@ class CubeRenderDisplay < Widget
         @text_5.label = "#{objects_text}/#{number_of_invisible_objects}"
         @text_6.label = center_text
         @text_7.label = cube_text
+
+    
+        #raycast_all_x 
     end
 
     def camera_text 
@@ -978,32 +1039,57 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbE
             puts "------------"
             puts "Lets raycast"
+            puts "NOTE: right now this is not doing anything"
+            raycast_all_x 
             # Send a ray the direction we are looking (direction vector)
             # and see what it hits
-            x = @raycast_x  # the middle pixel
+            #x = @raycast_x  # the middle pixel
+        end
+    end
 
-            plane_x = 0     # the 2d raycaster version of camera plane
-            plane_y = 0.66 
+    def raycast_all_x 
+        @raycast_lines = []
+        plane_x = 0     # the 2d raycaster version of camera plane
+        plane_y = 0.66 
+        (0..1279).each do |x|
+            ray_line = raycast(x, plane_x, plane_y) 
+            if ray_line
+                @raycast_lines << ray_line 
+            end 
+        end
+    end
 
-            tile_x = @grid.determine_grid_x($center_x)
-            tile_y = @grid.determine_grid_y($center_z)
-            adj_tile_x = tile_x + @grid.grid_x_offset
-            adj_tile_y = tile_y + @grid.grid_y_offset
+    def raycast(x, plane_x, plane_y)
+        tile_x = @grid.determine_grid_x($center_x)
+        tile_y = @grid.determine_grid_y($center_z)
+        adj_tile_x = tile_x + @grid.grid_x_offset
+        adj_tile_y = tile_y + @grid.grid_y_offset
 
-            puts "We are at #{tile_x}, #{tile_y}"
+        #puts "We are at #{tile_x}, #{tile_y}"
 
-            #drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, @posX, @posY, @dirX, @dirY, @planeX, @planeY)
-            drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
-            adj_map_x = mapX - @grid.grid_y_offset
-            adj_map_y = mapY - @grid.grid_x_offset
-            puts "map_x/y:  #{mapY}, #{mapX}"
-            puts "map_x/y:  #{adj_map_y}, #{adj_map_x}   side: #{side}    drawStart/End: #{drawStart}, #{drawEnd}"
-            # choose wall color
-            #color = nil   # rgb
-            at_ray = @raycast_map[mapX][mapY]
-            puts "At that spot: #{at_ray}"
-            @raycast_y_start = drawStart
-            @raycast_y_end = drawEnd
+        drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
+        adj_map_x = mapX - @grid.grid_y_offset
+        adj_map_y = mapY - @grid.grid_x_offset
+        #puts "map_x/y:  #{mapY}, #{mapX}"
+        #puts "map_x/y:  #{adj_map_y}, #{adj_map_x}   side: #{side}    drawStart/End: #{drawStart}, #{drawEnd}"
+        # choose wall color
+        #color = nil   # rgb
+        at_ray = @raycast_map[mapX][mapY]
+        #puts "At that spot: #{at_ray}"
+        @raycast_y_start = drawStart
+        @raycast_y_end = drawEnd
+        if at_ray == 5
+            color_to_use = COLOR_AQUA
+            if side == 1
+                color_to_use = COLOR_BLUE
+            end
+            Line.new(x, @raycast_y_start, x, @raycast_y_end, color_to_use)
+        elsif at_ray == 18
+            color_to_use = COLOR_LIME
+            if side == 1
+                color_to_use = COLOR_PEACH
+            end
+            Line.new(x, @raycast_y_start, x, @raycast_y_end, color_to_use)
         end
     end
 
