@@ -297,6 +297,26 @@ class ThreeDObject
         end 
     end 
 
+    def rdia_sin(val)
+        #$stats.increment("sin_#{val}")
+        cached = $sin_cache[val]
+        if cached.nil?
+            cached = Math.sin(val)
+            $sin_cache[val] = cached 
+        end 
+        cached
+    end 
+
+    def rdia_cos(val)
+        #$stats.increment("cos_#{val}")
+        cached = $cos_cache[val]
+        if cached.nil?
+            cached = Math.cos(val)
+            $cos_cache[val] = cached 
+        end 
+        cached
+    end
+
     def calc_point(model_point, scale, angle_x = 0, angle_y = 0, angle_z = 0, move_x = 0, move_y = 0)
         # XD = X(N)-PIVX
         # YD = Y(N)-PIVY
@@ -310,18 +330,25 @@ class ThreeDObject
 
         # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
         # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-        zx = (xd * Math.cos(angle_z)) - (yd * Math.sin(angle_z)) - xd
-        zy = (xd * Math.sin(angle_z)) + (yd * Math.cos(angle_z)) - yd
+        z_cos = rdia_cos(angle_z)
+        z_sin = rdia_sin(angle_z)
+        y_cos = rdia_cos(angle_y)
+        y_sin = rdia_sin(angle_y)
+        x_cos = rdia_cos(angle_x)
+        x_sin = rdia_sin(angle_x)
+
+        zx = (xd * z_cos) - (yd * z_sin) - xd
+        zy = (xd * z_sin) + (yd * z_cos) - yd
 
         # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
         # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
-        yx = ((xd + zx) * Math.cos(angle_y)) - (zd * Math.sin(angle_y)) - (xd + zx)
-        yz = ((xd + zx) * Math.sin(angle_y)) + (zd * Math.cos(angle_y)) - zd
+        yx = ((xd + zx) * y_cos) - (zd * y_sin) - (xd + zx)
+        yz = ((xd + zx) * y_sin) + (zd * y_cos) - zd
 
         # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
         # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
-        xy = ((yd + zy) * Math.cos(angle_x)) - ((zd + yz) * Math.sin(angle_x)) - (yd + zy)
-        xz = ((yd + zy) * Math.sin(angle_x)) + ((zd + yz) * Math.cos(angle_x)) - (zd + yz)
+        xy = ((yd + zy) * x_cos) - ((zd + yz) * x_sin) - (yd + zy)
+        xz = ((yd + zy) * x_sin) + ((zd + yz) * x_cos) - (zd + yz)
 
         # XROTOFFSET = YX+ZX
         # YROTOFFSET = ZY+XY
@@ -516,12 +543,6 @@ class Wall < ThreeDObject
                 draw_left_side 
             end
         end
-        
-
-        
-
-        
-
     end 
 
     def draw_front 
@@ -603,6 +624,10 @@ class CubeRenderDisplay < Widget
         # This allows the initial center of the world to be 0, 0
         @offset_x = 600
         @offset_y = 300
+
+        $stats = Stats.new("Perf")
+        $cos_cache = {}
+        $sin_cache = {}
 
         $center_x = 0
         $center_y = 0
@@ -1038,9 +1063,10 @@ class CubeRenderDisplay < Widget
             end
         elsif id == Gosu::KbE
             puts "------------"
-            puts "Lets raycast"
-            puts "NOTE: right now this is not doing anything"
-            raycast_all_x 
+            $stats.display_counts
+            #puts "Lets raycast"
+            #puts "NOTE: right now this is not doing anything"
+            #raycast_all_x 
             # Send a ray the direction we are looking (direction vector)
             # and see what it hits
             #x = @raycast_x  # the middle pixel
