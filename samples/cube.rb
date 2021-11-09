@@ -243,7 +243,11 @@ class ThreeDObject
     end 
 
     def reset_visible_side
-        @visible_side = nil 
+        if @is_external
+            # do nothing, the visibility is static for external walls
+        else
+            @visible_side = nil 
+        end
     end 
 
     def set_visible_side(val)
@@ -553,10 +557,8 @@ class Cube < ThreeDObject
     end
 
     def render 
-
         # TODO figure out which of these faces are not visible
-        #      what direction are we facing relative to this cube
-        #      can raytracing help?
+        #      use logic similar to wall
         draw_quad([a, b, c, d])    # front
         draw_square([a, b, c, d], COLOR_WHITE)
 
@@ -579,7 +581,7 @@ end
 
 class Wall < ThreeDObject
     # The x, y, z coordinates are for the upper left corner
-    def initialize(x, z, width = 100, length = 100, img = "./media/tile5.png")
+    def initialize(x, z, width = 100, length = 100, img = "./media/tile5.png", is_external = false)
         super()
         @x = x 
         @y = 0
@@ -590,6 +592,7 @@ class Wall < ThreeDObject
         reset
         @img = Gosu::Image.new(img)
         @border_color = COLOR_WHITE
+        @is_external = is_external
     end 
 
     def reset 
@@ -777,16 +780,24 @@ class CubeRenderDisplay < Widget
         # Near and far walls
         x = -1000
         while x < 550
-            @all_objects << Wall.new(x, 8900, 500, 100)   # far wall
-            @all_objects << Wall.new(x, -500, 500, 100)   # wall behind us
+            far_wall = Wall.new(x, 8900, 500, 100, "./media/tile5.png", true)
+            far_wall.set_visible_side(QUAD_S)
+            @all_objects << far_wall
+            wall_behind_us = Wall.new(x, -500, 500, 100, "./media/tile5.png", true)
+            wall_behind_us.set_visible_side(QUAD_N)
+            @all_objects << wall_behind_us
             x = x + 500
         end
 
         # Side walls
         z = -500
         while z < 8910
-            @all_objects << Wall.new(-1000, z, 100, 500)    # left wall
-            @all_objects << Wall.new(1000, z, 100, 500)      # right wall
+            left_wall = Wall.new(-1000, z, 100, 500, "./media/tile5.png", true)
+            left_wall.set_visible_side(QUAD_E)
+            @all_objects << left_wall
+            right_wall = Wall.new(1000, z, 100, 500, "./media/tile5.png", true)
+            right_wall.set_visible_side(QUAD_W)
+            @all_objects << right_wall
             z = z + 500
         end
 
@@ -1200,7 +1211,7 @@ class CubeRenderDisplay < Widget
                 if tile
                     quad = ray_data.quad_from_slope
                     tile.set_visible_side(quad)
-                    puts "#{ray_data} ->  #{tile.class.name} #{@grid.determine_grid_x(tile.model_points[0].x)}, #{@grid.determine_grid_y(tile.model_points[0].z)}  #{display_quad(quad)}"
+                    #puts "#{ray_data} ->  #{tile.class.name} #{@grid.determine_grid_x(tile.model_points[0].x)}, #{@grid.determine_grid_y(tile.model_points[0].z)}  #{display_quad(quad)}"
                 #else
                 #    puts "#{ray_data} ->  #{tile}."
                 end
