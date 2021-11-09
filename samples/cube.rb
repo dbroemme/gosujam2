@@ -237,14 +237,17 @@ class ThreeDObject
         @visible = true
         @draw_as_image = true
         @scale = 1
+        @render_z_order = Z_ORDER_BORDER
     end 
 
     def reset_visible_side
         if @is_external
             # do nothing, the visibility is static for external walls
         else
-            @visible_side = nil 
-            @color = COLOR_AQUA
+            @visible_side = QUAD_ALL
+            if @color == COLOR_RED
+                @color = COLOR_AQUA
+            end
         end
     end 
 
@@ -252,7 +255,9 @@ class ThreeDObject
         if @visible_side.nil?
             @visible_side = val 
         elsif val != @visible_side 
-            puts "ERROR the visible side changing from #{@visible_side} to #{val}"
+            if @visible_side != 0
+                puts "ERROR the visible side changing from #{@visible_side} to #{val}"
+            end
             @visible_side = val  
         end 
     end
@@ -346,37 +351,46 @@ class ThreeDObject
         end
     end 
 
-    def draw_quad(points)
+    def draw_quad(points, z_order_to_use = nil)
+        if z_order_to_use.nil? 
+            z_order_to_use = @render_z_order
+        end
         if @draw_as_image 
             @img.draw_as_quad points[0].x, points[0].y, @color,
                               points[1].x, points[1].y, @color,
                               points[2].x, points[2].y, @color,
                               points[3].x, points[3].y, @color,
-                              11
+                              z_order_to_use
         else
             Gosu::draw_quad points[0].x, points[0].y, @color,
                             points[1].x, points[1].y, @color,
                             points[2].x, points[2].y, @color,
                             points[3].x, points[3].y, @color,
-                            11
+                            z_order_to_use
         end
     end 
 
-    def draw_square(points, override_color = nil)
+    def draw_square(points, override_color = nil, z_order_to_use = nil)
+        if z_order_to_use.nil? 
+            z_order_to_use = @render_z_order
+        end
         (0..3).each do |n|
             if n == 3
-                draw_line(points, n, 0, 10, override_color)
+                draw_line(points, n, 0, 10, override_color, z_order_to_use)
             else 
-                draw_line(points, n, n + 1, 10, override_color)
+                draw_line(points, n, n + 1, 10, override_color, z_order_to_use)
             end 
         end
     end
     
-    def draw_line(points, index1, index2, z = 10, override_color = nil)
+    def draw_line(points, index1, index2, z = 10, override_color = nil, z_order_to_use = nil)
+        if z_order_to_use.nil? 
+            z_order_to_use = @render_z_order
+        end
         point1 = points[index1]
         point2 = points[index2]
         color_to_use = override_color.nil? ? @color : override_color 
-        Gosu::draw_line point1.x, point1.y, color_to_use, point2.x, point2.y, color_to_use, z
+        Gosu::draw_line point1.x, point1.y, color_to_use, point2.x, point2.y, color_to_use, z_order_to_use
     end
 
     def calc_points
@@ -547,9 +561,16 @@ class Wall < ThreeDObject
             raise "Invalid image parameter for wall constructor: #{img}"
         end
         
-        @border_color = COLOR_WHITE
-        @is_external = is_external
         @visible_side = QUAD_ALL
+        @border_color = COLOR_WHITE
+
+        @is_external = false 
+        if is_external 
+            @is_external = true
+            @render_z_order = Z_ORDER_BORDER
+        else 
+            @render_z_order = Z_ORDER_GRAPHIC_ELEMENTS
+        end
     end 
 
     def reset 
@@ -567,27 +588,57 @@ class Wall < ThreeDObject
 
     def render 
         draw_top 
-         
+        if @is_external
+            # Right now, only N/S/E/W quads are used for external walls
+            if @visible_side == QUAD_N 
+                draw_back
+            elsif @visible_side == QUAD_S 
+                draw_front
+            elsif @visible_side == QUAD_E
+                draw_left_side
+            elsif @visible_side == QUAD_W 
+                draw_right_side
+            end
+            return 
+        end
+
         if @visible_side == QUAD_N 
-            draw_back 
+            draw_back(Z_ORDER_FOCAL_ELEMENTS)
         elsif @visible_side == QUAD_S 
-            draw_front 
+            draw_front(Z_ORDER_FOCAL_ELEMENTS)
+            draw_back
+            draw_right_side 
+            draw_left_side
         elsif @visible_side == QUAD_E
-            draw_left_side 
+            draw_left_side(Z_ORDER_FOCAL_ELEMENTS)
+            draw_back
+            draw_right_side 
+            draw_left_side
         elsif @visible_side == QUAD_W 
-            draw_right_side 
-        elsif @visible_side == QUAD_NE
+            draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
             draw_back
-            draw_right_side 
-        elsif @visible_side == QUAD_SE
-            draw_front 
-            draw_right_side 
-        elsif @visible_side == QUAD_NW
-            draw_back
-            draw_left_side  
-        elsif @visible_side == QUAD_SW
             draw_front 
             draw_left_side
+        elsif @visible_side == QUAD_NE
+            draw_back(Z_ORDER_FOCAL_ELEMENTS)
+            draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
+            draw_front 
+            draw_left_side
+        elsif @visible_side == QUAD_SE
+            draw_front(Z_ORDER_FOCAL_ELEMENTS) 
+            draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
+            draw_back
+            draw_left_side
+        elsif @visible_side == QUAD_NW
+            draw_back(Z_ORDER_FOCAL_ELEMENTS)
+            draw_left_side(Z_ORDER_FOCAL_ELEMENTS) 
+            draw_front 
+            draw_right_side
+        elsif @visible_side == QUAD_SW
+            draw_front(Z_ORDER_FOCAL_ELEMENTS) 
+            draw_left_side(Z_ORDER_FOCAL_ELEMENTS)
+            draw_back
+            draw_right_side
         elsif @visible_side == QUAD_ALL 
             draw_front 
             draw_back
@@ -598,35 +649,35 @@ class Wall < ThreeDObject
         end
     end 
 
-    def draw_front 
-        draw_quad([a, b, c, d])
-        draw_square([a, b, c, d], @border_color)
+    def draw_front(z_order_to_use = nil) 
+        draw_quad([a, b, c, d], z_order_to_use)
+        draw_square([a, b, c, d], @border_color, z_order_to_use)
     end
 
-    def draw_back 
-        draw_quad([e, f, g, h])    
-        draw_square([e, f, g, h], @border_color)
+    def draw_back(z_order_to_use = nil)
+        draw_quad([e, f, g, h], z_order_to_use)    
+        draw_square([e, f, g, h], @border_color, z_order_to_use)
     end
 
-    def draw_right_side 
-        draw_quad([b, f, g, c])
-        draw_square([b, f, g, c], @border_color)
+    def draw_right_side(z_order_to_use = nil)
+        draw_quad([b, f, g, c], z_order_to_use)
+        draw_square([b, f, g, c], @border_color, z_order_to_use)
     end 
 
-    def draw_left_side
-        draw_quad([a, e, h, d])
-        draw_square([a, e, h, d], @border_color)
+    def draw_left_side(z_order_to_use = nil)
+        draw_quad([a, e, h, d], z_order_to_use)
+        draw_square([a, e, h, d], @border_color, z_order_to_use)
     end 
 
-    def draw_top 
-        draw_quad([d, h, g, c])
-        draw_square([d, h, g, c], @border_color)
+    def draw_top(z_order_to_use = nil)
+        draw_quad([d, h, g, c], z_order_to_use)
+        draw_square([d, h, g, c], @border_color, z_order_to_use)
     end 
 
     # Note in 2.5D this would never really get used
-    def draw_bottom 
-        draw_quad([a, e, f, b])  
-        draw_square([a, e, f, b], COLOR_WHITE)
+    def draw_bottom(z_order_to_use = nil) 
+        draw_quad([a, e, f, b], z_order_to_use)  
+        draw_square([a, e, f, b], @border_color, z_order_to_use)
     end
 end
 
@@ -702,7 +753,7 @@ class CubeRenderDisplay < Widget
         @dir_y = 0   
         determine_directional_quadrant
 
-        @speed = 5
+        @speed = 10
         @mode = MODE_ISOMETRIC
         @continuous_movement = true
 
@@ -712,7 +763,7 @@ class CubeRenderDisplay < Widget
         #@z_axis = ThreeDLine.new(ThreeDPoint.new(0, 0, -AXIS_END), ThreeDPoint.new(0, 0, AXIS_END))
 
         # Our objects
-        @cube = Cube.new(-300, 300, 100, COLOR_RED)
+        @cube = Cube.new(-300, 300, 100, COLOR_LIME)
         @all_objects = [@cube]
         #@all_objects = []
 
@@ -756,10 +807,10 @@ class CubeRenderDisplay < Widget
         z = -500
         while z < 8910
             left_wall = Wall.new(-1000, z, 100, 500, "./media/tile5.png", true)
-            left_wall.set_visible_side(QUAD_E)
+            left_wall.set_visible_side(QUAD_W)
             @all_objects << left_wall
             right_wall = Wall.new(1000, z, 100, 500, "./media/tile5.png", true)
-            right_wall.set_visible_side(QUAD_W)
+            right_wall.set_visible_side(QUAD_E)
             @all_objects << right_wall
             z = z + 500
         end
@@ -930,10 +981,10 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_update update_count, mouse_x, mouse_y
-        #modify do |n|
-        #    n.reset_visible_side
-        #end
-        #raycast_for_visibility
+        modify do |n|
+            n.reset_visible_side
+        end
+        raycast_for_visibility
 
         calc_points
 
@@ -1112,11 +1163,13 @@ class CubeRenderDisplay < Widget
                 if tile
                     quad = ray_data.quad_from_slope
                     tile.set_visible_side(quad)
-                    if tile.is_a? Cube 
+
+                    # This is for DEBUG
+                    #if tile.is_a? Cube 
                         # do nothing
-                    else
-                        tile.color = COLOR_RED
-                    end
+                    #else
+                    #    tile.color = COLOR_RED
+                    #end
                     #puts "#{ray_data} ->  #{tile.class.name} #{@grid.determine_grid_x(tile.model_points[0].x)}, #{@grid.determine_grid_y(tile.model_points[0].z)}  #{display_quad(quad)}"
                 #else
                 #    puts "#{ray_data} ->  #{tile}."
