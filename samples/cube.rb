@@ -20,6 +20,76 @@ MODE_REAL_THREE_D = "real3d"
 AXIS_BEGIN = -500
 AXIS_END = 500
 
+class RayCastData 
+    attr_accessor :x
+    attr_accessor :tile_x
+    attr_accessor :tile_y 
+    attr_accessor :map_x
+    attr_accessor :map_y 
+    attr_accessor :at_ray 
+    attr_accessor :side
+    attr_accessor :draw_start  
+    attr_accessor :draw_end 
+    attr_accessor :color 
+    attr_accessor :orig_map_x 
+    attr_accessor :orig_map_y
+
+    def initialize(x, tile_x, tile_y, map_x, map_y, at_ray, side, draw_start, draw_end, color, orig_map_x, orig_map_y)
+        @x = x 
+        @tile_x = tile_x 
+        @tile_y = tile_y
+        @map_x = map_x 
+        @map_y = map_y 
+        @at_ray = at_ray 
+        @side = side 
+        @draw_start = draw_start 
+        @draw_end = draw_end
+        @color = color
+        @orig_map_x = orig_map_x 
+        @orig_map_y = orig_map_y
+    end
+
+    def slope
+        [@map_y - @orig_map_y, @map_x - @orig_map_x]
+    end 
+
+    def quad_from_slope
+        # Return the side of impact on the viewed shape from the ray
+        slope_x, slope_y = slope
+        if slope_x > 0
+            if slope_y > 0
+                return QUAD_SW
+            elsif slope_y == 0
+                return QUAD_W
+            else 
+                return QUAD_NW
+            end
+        elsif slope_x == 0
+            if slope_y > 0
+                return QUAD_S
+            else 
+                return QUAD_N
+            end 
+        else 
+            # slope_x < 0
+            if slope_y > 0
+                return QUAD_SE
+            elsif slope_y == 0
+                return QUAD_E
+            else 
+                return QUAD_NE
+            end
+        end
+
+        # Do not know 
+        -1
+    end
+
+    def to_s 
+        "Ray x: #{@x} Tile[#{@tile_x}, #{@tile_y}]  Map[#{@map_y}, #{@map_x}]  At: #{@at_ray}  Side: #{@side}   Orig: #{@orig_map_y}, #{@orig_map_x}"
+    end 
+end
+    
 class RayCaster 
     def initialize(world_map, screen_width, screen_height)
         @world_map = world_map
@@ -35,6 +105,9 @@ class RayCaster
         # which box of the map we're in
         mapX = posX.to_i
         mapY = posY.to_i
+
+        orig_map_x = mapX
+        orig_map_y = mapY
 
         # length of ray from current position to next x or y-side: sideDistX, sideDistY
           
@@ -92,6 +165,7 @@ class RayCaster
             if @world_map[mapX][mapY] > 0
                 hit = 1
             end
+            puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
         end
 
         # Calculate distance projected on camera direction. This is the shortest distance from the point where the wall is
@@ -118,8 +192,9 @@ class RayCaster
         if drawEnd >= @h
             drawEnd = @h - 1
         end
+        puts "Done raycast orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
         
-        [drawStart, drawEnd, mapX, mapY, side]
+        [drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
     end
 end
 
@@ -260,13 +335,13 @@ class ThreeDObject
                               points[1].x, points[1].y, @color,
                               points[2].x, points[2].y, @color,
                               points[3].x, points[3].y, @color,
-                              10
+                              11
         else
             Gosu::draw_quad points[0].x, points[0].y, @color,
                             points[1].x, points[1].y, @color,
                             points[2].x, points[2].y, @color,
                             points[3].x, points[3].y, @color,
-                            10
+                            11
         end
     end 
 
@@ -644,10 +719,6 @@ class CubeRenderDisplay < Widget
         @mode = MODE_ISOMETRIC
         @continuous_movement = true
 
-        @raycast_x = 640
-        @raycast_y_start = nil 
-        @raycast_y_end = nil
-
         # Axis lines
         #@x_axis = ThreeDLine.new(ThreeDPoint.new(-1000, 0, 0), ThreeDPoint.new(1000, 0, 0))
         #@y_axis = ThreeDLine.new(ThreeDPoint.new(0, -AXIS_END, 0), ThreeDPoint.new(0, AXIS_END, 0))
@@ -889,12 +960,6 @@ class CubeRenderDisplay < Widget
                 ray_line.draw 
             end 
         end
-        #@raycast_x = 640
-        #if @raycast_y_start.nil?
-            # do nothing
-        #else 
-        #    Gosu::draw_line @raycast_x, @raycast_y_start, COLOR_AQUA, @raycast_x, @raycast_y_end, COLOR_AQUA, 20
-        #end
     end
 
     def handle_update update_count, mouse_x, mouse_y
@@ -1026,14 +1091,6 @@ class CubeRenderDisplay < Widget
         else 
             @dir_quad = QUAD_N
         end
-        #QUAD_NW = 1
-        #QUAD_N = 2
-        #QUAD_NE = 3
-        #QUAD_E = 4
-        #QUAD_SE = 5
-        #QUAD_S = 6
-        #QUAD_SW = 7
-        #QUAD_W = 8
     end 
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -1063,60 +1120,85 @@ class CubeRenderDisplay < Widget
             end
         elsif id == Gosu::KbE
             puts "------------"
-            $stats.display_counts
+            #$stats.display_counts
             #puts "Lets raycast"
             #puts "NOTE: right now this is not doing anything"
             #raycast_all_x 
             # Send a ray the direction we are looking (direction vector)
             # and see what it hits
-            #x = @raycast_x  # the middle pixel
+            t1 = Time.now
+            (0..1279).each do |x|
+                ray_line = raycast(x) 
+                puts ray_line
+            end
+            t2 = Time.now
+            delta = t2 - t1 # in seconds
+            puts "Raycast took #{delta} seconds"
+        elsif id == Gosu::KbR
+            puts "------------"
+            puts "Lets raycast"
+            ray_line =  raycast(640) 
+            puts ray_line
+            slope = ray_line.slope 
+            puts slope
+            qfs = ray_line.quad_from_slope
+            if qfs == QUAD_NW
+                str_qfs = "QUAD_NW"
+            elsif qfs == QUAD_N
+                str_qfs = "QUAD_N"
+            elsif qfs == QUAD_NE
+                str_qfs = "QUAD_NE"
+            elsif qfs == QUAD_SW
+                str_qfs = "QUAD_SW"
+            elsif qfs == QUAD_S
+                str_qfs = "QUAD_S"
+            elsif qfs == QUAD_SE
+                str_qfs = "QUAD_SE"
+            elsif qfs == QUAD_E
+                str_qfs = "QUAD_E"
+            elsif qfs == QUAD_W
+                str_qfs = "QUAD_W"
+            end
+            puts "Quad: #{qfs}  #{str_qfs}"
         end
     end
 
     def raycast_all_x 
         @raycast_lines = []
-        plane_x = 0     # the 2d raycaster version of camera plane
-        plane_y = 0.66 
         (0..1279).each do |x|
-            ray_line = raycast(x, plane_x, plane_y) 
+            ray_line = raycast(x) 
+            # TODO this code is broken now
             if ray_line
-                @raycast_lines << ray_line 
+                @raycast_lines << TODO
             end 
         end
     end
 
-    def raycast(x, plane_x, plane_y)
+    def raycast(x, plane_x = 0, plane_y = 0.66) 
         tile_x = @grid.determine_grid_x($center_x)
         tile_y = @grid.determine_grid_y($center_z)
         adj_tile_x = tile_x + @grid.grid_x_offset
         adj_tile_y = tile_y + @grid.grid_y_offset
-
-        #puts "We are at #{tile_x}, #{tile_y}"
-
-        drawStart, drawEnd, mapX, mapY, side = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
-        adj_map_x = mapX - @grid.grid_y_offset
+        drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
+        adj_map_x = mapX - @grid.grid_y_offset   # The raycast map is set the other way
         adj_map_y = mapY - @grid.grid_x_offset
-        #puts "map_x/y:  #{mapY}, #{mapX}"
-        #puts "map_x/y:  #{adj_map_y}, #{adj_map_x}   side: #{side}    drawStart/End: #{drawStart}, #{drawEnd}"
-        # choose wall color
-        #color = nil   # rgb
+        adj_orig_map_x = orig_map_x - @grid.grid_y_offset
+        adj_orig_map_y = orig_map_y - @grid.grid_x_offset
+
         at_ray = @raycast_map[mapX][mapY]
-        #puts "At that spot: #{at_ray}"
-        @raycast_y_start = drawStart
-        @raycast_y_end = drawEnd
         if at_ray == 5
             color_to_use = COLOR_AQUA
             if side == 1
                 color_to_use = COLOR_BLUE
             end
-            Line.new(x, @raycast_y_start, x, @raycast_y_end, color_to_use)
         elsif at_ray == 18
             color_to_use = COLOR_LIME
             if side == 1
                 color_to_use = COLOR_PEACH
             end
-            Line.new(x, @raycast_y_start, x, @raycast_y_end, color_to_use)
         end
+        
+        RayCastData.new(x, tile_x, tile_y, adj_map_x, adj_map_y, at_ray, side, drawStart, drawEnd, color_to_use, adj_orig_map_x, adj_orig_map_y)
     end
 
     def handle_movement id, mouse_x, mouse_y 
