@@ -81,12 +81,13 @@ class RayCastData
             end
         end
 
-        # Do not know 
-        -1
+        # Do not know or x and y equal, so we are on top of the object
+        # and therefore should not display it
+        QUAD_NONE
     end
 
     def to_s 
-        "Ray x: #{@x} Tile[#{@tile_x}, #{@tile_y}]  Map[#{@map_y}, #{@map_x}]  At: #{@at_ray}  Side: #{@side}   Orig: #{@orig_map_y}, #{@orig_map_x}"
+        "Ray x: #{@x} Tile[#{@tile_x}, #{@tile_y}] -> Map[#{@map_y}, #{@map_x}]  At: #{@at_ray}  Side: #{@side}"
     end 
 end
     
@@ -165,7 +166,7 @@ class RayCaster
             if @world_map[mapX][mapY] > 0
                 hit = 1
             end
-            puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
+            #puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
         end
 
         # Calculate distance projected on camera direction. This is the shortest distance from the point where the wall is
@@ -174,27 +175,27 @@ class RayCaster
         # for size == 1, but can be simplified to the code below thanks to how sideDist and deltaDist are computed:
         # because they were left scaled to |rayDir|. sideDist is the entire length of the ray above after the multiple
         # steps, but we subtract deltaDist once because one step more into the wall was taken above.
-        if side == 0
-            perpWallDist = (sideDistX - deltaDistX)
-        else
-            perpWallDist = (sideDistY - deltaDistY)
-        end
+        #if side == 0
+        #    perpWallDist = (sideDistX - deltaDistX)
+        #else
+        #    perpWallDist = (sideDistY - deltaDistY)
+        #end
 
         # Calculate height of line to draw on screen
-        lineHeight = (@h / perpWallDist).to_i
+        #lineHeight = (@h / perpWallDist).to_i
 
         # calculate lowest and highest pixel to fill in current stripe
-        drawStart = ((-lineHeight / 2) + (@h / 2)).to_i
-        if drawStart < 0
-            drawStart = 0
-        end
-        drawEnd = ((lineHeight / 2) + (@h / 2)).to_i
-        if drawEnd >= @h
-            drawEnd = @h - 1
-        end
-        puts "Done raycast orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
+        #drawStart = ((-lineHeight / 2) + (@h / 2)).to_i
+        #if drawStart < 0
+        #    drawStart = 0
+        #end
+        #drawEnd = ((lineHeight / 2) + (@h / 2)).to_i
+        #if drawEnd >= @h
+        #    drawEnd = @h - 1
+        #end
         
-        [drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
+        #[drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
+        [0, 0, mapX, mapY, side, orig_map_x, orig_map_y]
     end
 end
 
@@ -224,6 +225,7 @@ class ThreeDObject
     attr_accessor :color
     attr_accessor :visible
     attr_accessor :scale
+    attr_accessor :visible_side
 
     attr_accessor :x
     attr_accessor :y
@@ -239,6 +241,19 @@ class ThreeDObject
         @draw_as_image = true
         @scale = 1
     end 
+
+    def reset_visible_side
+        @visible_side = nil 
+    end 
+
+    def set_visible_side(val)
+        if @visible_side.nil?
+            @visible_side = val 
+        elsif val != @visible_side 
+            puts "ERROR the visible side changing from #{@visible_side} to #{val}"
+            @visible_side = val  
+        end 
+    end
 
     def is_behind_us
         # This is a hack, but somewhat effective
@@ -603,20 +618,26 @@ class Wall < ThreeDObject
 
         draw_top 
          
-        if $center_z < @z
-            draw_front
-            if $center_x > @x 
-                draw_right_side 
-            else 
-                draw_left_side 
-            end
-        else
+        if @visible_side == QUAD_N 
+            draw_back 
+        elsif @visible_side == QUAD_S 
+            draw_front 
+        elsif @visible_side == QUAD_E
+            draw_left_side 
+        elsif @visible_side == QUAD_W 
+            draw_right_side 
+        elsif @visible_side == QUAD_NE
             draw_back
-            if $center_x < @x 
-                draw_right_side 
-            else 
-                draw_left_side 
-            end
+            draw_right_side 
+        elsif @visible_side == QUAD_SE
+            draw_front 
+            draw_right_side 
+        elsif @visible_side == QUAD_NW
+            draw_back
+            draw_left_side  
+        elsif @visible_side == QUAD_SW
+            draw_front 
+            draw_left_side  
         end
     end 
 
@@ -784,7 +805,7 @@ class CubeRenderDisplay < Widget
             end 
             x = x + 200
         end
-        # Darren
+
         # Floor lines. Floor is y=0, because y is really height
         x = -1000
         while x < 1050
@@ -1005,8 +1026,13 @@ class CubeRenderDisplay < Widget
             end
         end
 
+        modify do |n|
+            n.reset_visible_side
+        end
+        raycast_for_visibility
 
         calc_points
+
         @text_1.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @text_2.label = camera_text
         @text_3.label = angle_text
@@ -1020,9 +1046,6 @@ class CubeRenderDisplay < Widget
         @text_5.label = "#{objects_text}/#{number_of_invisible_objects}"
         @text_6.label = center_text
         @text_7.label = cube_text
-
-    
-        #raycast_all_x 
     end
 
     def camera_text 
@@ -1123,14 +1146,14 @@ class CubeRenderDisplay < Widget
             #$stats.display_counts
             #puts "Lets raycast"
             #puts "NOTE: right now this is not doing anything"
-            #raycast_all_x 
             # Send a ray the direction we are looking (direction vector)
             # and see what it hits
             t1 = Time.now
-            (0..1279).each do |x|
-                ray_line = raycast(x) 
-                puts ray_line
-            end
+            #(0..1279).each do |x|
+            #    ray_line = raycast(x) 
+            #    puts ray_line
+            #end
+            raycast_for_visibility
             t2 = Time.now
             delta = t2 - t1 # in seconds
             puts "Raycast took #{delta} seconds"
@@ -1142,35 +1165,46 @@ class CubeRenderDisplay < Widget
             slope = ray_line.slope 
             puts slope
             qfs = ray_line.quad_from_slope
-            if qfs == QUAD_NW
-                str_qfs = "QUAD_NW"
-            elsif qfs == QUAD_N
-                str_qfs = "QUAD_N"
-            elsif qfs == QUAD_NE
-                str_qfs = "QUAD_NE"
-            elsif qfs == QUAD_SW
-                str_qfs = "QUAD_SW"
-            elsif qfs == QUAD_S
-                str_qfs = "QUAD_S"
-            elsif qfs == QUAD_SE
-                str_qfs = "QUAD_SE"
-            elsif qfs == QUAD_E
-                str_qfs = "QUAD_E"
-            elsif qfs == QUAD_W
-                str_qfs = "QUAD_W"
-            end
+            
             puts "Quad: #{qfs}  #{str_qfs}"
         end
     end
 
-    def raycast_all_x 
-        @raycast_lines = []
+    def display_quad(qfs)
+        if qfs == QUAD_NW
+            return "QUAD_NW"
+        elsif qfs == QUAD_N
+            return "QUAD_N"
+        elsif qfs == QUAD_NE
+            return "QUAD_NE"
+        elsif qfs == QUAD_SW
+            return "QUAD_SW"
+        elsif qfs == QUAD_S
+            return "QUAD_S"
+        elsif qfs == QUAD_SE
+            return "QUAD_SE"
+        elsif qfs == QUAD_E
+            return "QUAD_E"
+        elsif qfs == QUAD_W
+            return "QUAD_W"
+        end
+    end 
+
+    def raycast_for_visibility
         (0..1279).each do |x|
-            ray_line = raycast(x) 
-            # TODO this code is broken now
-            if ray_line
-                @raycast_lines << TODO
-            end 
+        #(640..641).each do |x|
+            ray_data = raycast(x) 
+            if ray_data.at_ray != 0
+                # Get the tile at this spot
+                tile = @grid.get_tile(ray_data.map_y, ray_data.map_x)
+                if tile
+                    quad = ray_data.quad_from_slope
+                    tile.set_visible_side(quad)
+                    puts "#{ray_data} ->  #{tile.class.name} #{@grid.determine_grid_x(tile.model_points[0].x)}, #{@grid.determine_grid_y(tile.model_points[0].z)}  #{display_quad(quad)}"
+                #else
+                #    puts "#{ray_data} ->  #{tile}."
+                end
+            end
         end
     end
 

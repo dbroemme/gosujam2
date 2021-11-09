@@ -17,6 +17,8 @@ module RdiaGames
     ARG_X_OFFSET = "x_offset"
     ARG_Y_OFFSET = "y_offset"
 
+    QUAD_NONE = -1
+
     #
     # The WadsApp class provides a simple starting point to quickly build a native
     # Ruby application using Gosu as an underlying library. It provides all the necessary

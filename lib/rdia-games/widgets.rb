@@ -541,7 +541,15 @@ module RdiaGames
         end
 
         def get_tile(tile_x, tile_y)
-            @tiles[tile_x][tile_y]
+            #adjusted_tile_x = tile_x + @grid_x_offset
+            #adjusted_tile_y = tile_y + @grid_y_offset
+            row = @tiles[tile_x]
+            #puts "Get tile #{tile_x}, #{tile_y}   row: #{row}"
+            if row.nil?
+                return nil 
+            end
+            #puts "Get tile #{tile_x}, #{tile_y}   going to return: #{row[tile_y]}"
+            row[tile_y]
         end 
 
         def set_tile(tile_x, tile_y, widget)
