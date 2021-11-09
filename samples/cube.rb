@@ -226,10 +226,7 @@ class ThreeDObject
     attr_accessor :visible
     attr_accessor :scale
     attr_accessor :visible_side
-
-    attr_accessor :x
-    attr_accessor :y
-    attr_accessor :scale
+    attr_accessor :is_external
 
     def initialize(color = COLOR_AQUA)
         @move_x = 0     # TODO make public?
@@ -247,6 +244,7 @@ class ThreeDObject
             # do nothing, the visibility is static for external walls
         else
             @visible_side = nil 
+            @color = COLOR_AQUA
         end
     end 
 
@@ -524,64 +522,13 @@ class FloorTile < ThreeDObject
     end
 
     def render 
-        a = @render_points[0]
-        b = @render_points[1]
-        c = @render_points[2]
-        d = @render_points[3]
         draw_square([a, b, c, d])
-    end 
-end
-
-class Cube < ThreeDObject
-    # The x, y, z coordinates are for the upper left corner
-    def initialize(x, y, z, length, color = COLOR_AQUA)
-        super(color)
-        @x = x 
-        @y = y 
-        @z = z
-        @length = length
-        reset
-        @img = Gosu::Image.new("./media/tile5.png")
-    end 
-
-    def reset 
-        reset_angle_and_scale
-        @model_points << ThreeDPoint.new(@x,           @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @length, @y - @length, @z)
-        @model_points << ThreeDPoint.new(@x,           @y - @length, @z)
-        @model_points << ThreeDPoint.new(@x,           @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x + @length, @y - @length, @z + @length)
-        @model_points << ThreeDPoint.new(@x,           @y - @length, @z + @length)
-    end
-
-    def render 
-        # TODO figure out which of these faces are not visible
-        #      use logic similar to wall
-        draw_quad([a, b, c, d])    # front
-        draw_square([a, b, c, d], COLOR_WHITE)
-
-        draw_quad([b, f, g, c])    # right side
-        draw_square([b, f, g, c], COLOR_WHITE)
-
-        draw_quad([d, h, g, c])    # top
-        draw_square([d, h, g, c], COLOR_WHITE)
-
-        #draw_quad([a, e, h, d])   # left side
-        #draw_square([a, e, h, d], COLOR_WHITE)
-
-        #draw_quad([e, f, g, h])   # back     
-        #draw_square([e, f, g, h], COLOR_WHITE)
-
-        #draw_quad([a, e, f, b])   # bottom   Normally we never draw the bottom
-        #draw_square([a, e, f, b], COLOR_WHITE)
     end 
 end
 
 class Wall < ThreeDObject
     # The x, y, z coordinates are for the upper left corner
-    def initialize(x, z, width = 100, length = 100, img = "./media/tile5.png", is_external = false)
+    def initialize(x, z, width, length, img, is_external = false)
         super()
         @x = x 
         @y = 0
@@ -590,9 +537,19 @@ class Wall < ThreeDObject
         @width = width
         @height = 100
         reset
-        @img = Gosu::Image.new(img)
+        if img.nil? 
+            # do nothing, this will get drawn as a solid color
+        elsif img.is_a? String
+            @img = Gosu::Image.new(img)
+        elsif img.is_a? Gosu::Image
+            @img = img
+        else 
+            raise "Invalid image parameter for wall constructor: #{img}"
+        end
+        
         @border_color = COLOR_WHITE
         @is_external = is_external
+        @visible_side = QUAD_ALL
     end 
 
     def reset 
@@ -609,16 +566,6 @@ class Wall < ThreeDObject
     end
 
     def render 
-        a = @render_points[0]
-        b = @render_points[1]
-        c = @render_points[2]
-        d = @render_points[3]
-        e = @render_points[4]
-        f = @render_points[5]
-        g = @render_points[6]
-        h = @render_points[7]
-        
-
         draw_top 
          
         if @visible_side == QUAD_N 
@@ -640,7 +587,14 @@ class Wall < ThreeDObject
             draw_left_side  
         elsif @visible_side == QUAD_SW
             draw_front 
-            draw_left_side  
+            draw_left_side
+        elsif @visible_side == QUAD_ALL 
+            draw_front 
+            draw_back
+            draw_right_side 
+            draw_left_side
+        else
+            puts "[#{self.class.name}] Not drawing anything because visible side is #{@visible_side}."
         end
     end 
 
@@ -674,6 +628,15 @@ class Wall < ThreeDObject
         draw_quad([a, e, f, b])  
         draw_square([a, e, f, b], COLOR_WHITE)
     end
+end
+
+class Cube < Wall
+    # The x, y, z coordinates are for the upper left corner
+    def initialize(x, z, size, color = COLOR_AQUA)
+        super(x, z, size, size, nil)
+        @draw_as_image = false
+        @color = color
+    end 
 end
 
 class CubeRender < RdiaGame
@@ -716,8 +679,8 @@ class CubeRenderDisplay < Widget
         super(0, 0, GAME_WIDTH, GAME_HEIGHT)
         disable_border
 
-        @x_axis_lines = []
-        @z_axis_lines = []
+        @image_external_wall = Gosu::Image.new("./media/tile5.png")
+        @image_tile_18 = Gosu::Image.new("./media/tile18.png")
 
         # Draw offsets so the zero centered world is centered visually on the screen
         # This allows the initial center of the world to be 0, 0
@@ -749,7 +712,7 @@ class CubeRenderDisplay < Widget
         #@z_axis = ThreeDLine.new(ThreeDPoint.new(0, 0, -AXIS_END), ThreeDPoint.new(0, 0, AXIS_END))
 
         # Our objects
-        @cube = Cube.new(-300, 0, 300, 100, COLOR_RED)
+        @cube = Cube.new(-300, 300, 100, COLOR_RED)
         @all_objects = [@cube]
         #@all_objects = []
 
@@ -780,10 +743,10 @@ class CubeRenderDisplay < Widget
         # Near and far walls
         x = -1000
         while x < 550
-            far_wall = Wall.new(x, 8900, 500, 100, "./media/tile5.png", true)
+            far_wall = Wall.new(x, 8900, 500, 100, @image_external_wall, true)
             far_wall.set_visible_side(QUAD_S)
             @all_objects << far_wall
-            wall_behind_us = Wall.new(x, -500, 500, 100, "./media/tile5.png", true)
+            wall_behind_us = Wall.new(x, -500, 500, 100, @image_external_wall, true)
             wall_behind_us.set_visible_side(QUAD_N)
             @all_objects << wall_behind_us
             x = x + 500
@@ -811,26 +774,9 @@ class CubeRenderDisplay < Widget
             z = -500
             while z < 8890
                 @all_objects << FloorTile.new(x, z, 200)
-                #puts "creat a floor tile at z #{z}"
                 z = z + 200
             end 
             x = x + 200
-        end
-
-        # Floor lines. Floor is y=0, because y is really height
-        x = -1000
-        while x < 1050
-            x_axis_line = ThreeDLine.new(ThreeDPoint.new(x, 0, -500), ThreeDPoint.new(x, 0, 8900), COLOR_WHITE)
-            @x_axis_lines << x_axis_line
-            #@all_objects << x_axis_line
-            x = x + 100
-        end
-        z = -500
-        while z < 9010
-            z_axis_line = ThreeDLine.new(ThreeDPoint.new(-1000, 0, z), ThreeDPoint.new(1000, 0, z), COLOR_PINK)
-            @z_axis_lines << z_axis_line
-            #@all_objects << z_axis_line
-            z = z + 100
         end
 
         @text_1 = Text.new(10, 10, "")
@@ -888,7 +834,7 @@ class CubeRenderDisplay < Widget
                     #img = Wall.new(grid_x * 100, grid_y * 100)
                 elsif char == "18"
                     add_to_maps(array_grid_x, array_grid_y, 18)
-                    img = Wall.new(grid_x * 100, grid_y * 100, 100, 100, "./media/tile18.png")
+                    img = Wall.new(grid_x * 100, grid_y * 100, 100, 100, @image_tile_18)
                 end
                 
                 if not img.nil?
@@ -946,22 +892,23 @@ class CubeRenderDisplay < Widget
         end
 
         # Show the origin (pivot) point as a cube
-        @center_cube = Cube.new($center_x, $center_y, $center_z, 25, COLOR_LIGHT_BLUE)
-        @center_cube.calc_points
+        #@center_cube = Cube.new($center_x, $center_z, 25, COLOR_LIGHT_BLUE)
+        #@center_cube.angle_y = @all_objects[0].angle_y
+        #@center_cube.calc_points
 
         # Darren Show the directional vector as a cube
         # initial direction vector    @dir_x = -1   @dir_y = 0   
         dir_scale = 100
         extended_dir_x = @dir_x * dir_scale  
         extended_dir_y = @dir_y * dir_scale  
-        @dir_cube = Cube.new($center_x + extended_dir_y, $center_y, $center_z + extended_dir_x, 25, COLOR_PEACH)
+        @dir_cube = Cube.new($center_x + extended_dir_y, $center_z + extended_dir_x, 25, COLOR_PEACH)
         @dir_cube.angle_y = @all_objects[0].angle_y
         @dir_cube.calc_points
     end 
 
     def render
         Gosu.translate(@offset_x, @offset_y) do
-            @center_cube.render
+            #@center_cube.render
             #@dir_cube.render
 
             modify do |n|
@@ -972,18 +919,6 @@ class CubeRenderDisplay < Widget
                     n.render
                 end
             end
-
-
-            # TEMP so it is easier to see center cube
-            #@z_axis_lines.each do |z_axis_line|
-            #    WadsConfig.instance.current_theme.font.draw_text("#{z_axis_line.a.z}", 10, z_axis_line.render_points[0].y, 10, 1, 1, COLOR_WHITE)
-            #end
-
-            # TODO draw the x axis line numbers
-            #@x_axis_lines.each do |x_axis_line|
-                #puts "Drawing line #{x_axis_line}"
-            #    WadsConfig.instance.current_theme.font.draw_text("#{x_axis_line.a.x}", x_axis_line.render_points[1].x, -x_axis_line.render_points[1].x, 10, 1, 1, COLOR_WHITE)
-            #end
         end 
 
         # Temp draw what the raycast shows for the center x pixel
@@ -995,52 +930,10 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_update update_count, mouse_x, mouse_y
-        @x_axis_lines.each do |x_axis_line|
-            if @dir_quad == QUAD_N
-                x_axis_line.a.z = $center_z - 300
-                x_axis_line.b.z = $center_z + 9000
-            elsif @dir_quad == QUAD_NE
-                x_axis_line.a.z = $center_z - 300
-                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
-                x_axis_line.b.z = $center_z + 5000
-            elsif @dir_quad == QUAD_NW
-                x_axis_line.a.z = $center_z - 300
-                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
-                x_axis_line.b.z = $center_z + 5000
-            elsif @dir_quad == QUAD_S 
-                x_axis_line.a.z = $center_z - 9000
-                x_axis_line.b.z = $center_z + 300
-            elsif @dir_quad == QUAD_SE
-                x_axis_line.a.z = $center_z - 5000
-                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
-                x_axis_line.b.z = $center_z + 800
-            elsif @dir_quad == QUAD_SW
-                x_axis_line.a.z = $center_z - 5000
-                #puts "Setting x grid #{x_axis_line.a.x} to #{x_axis_line.a.z}"
-                x_axis_line.b.z = $center_z + 800
-            elsif @dir_quad == QUAD_W or @dir_quad == QUAD_E
-                x_axis_line.a.z = $center_z - 800
-                x_axis_line.b.z = $center_z + 800
-            else 
-                puts "ERROR: Invalid directional quadrant #{@dir_quad}."
-            end 
-
-            if x_axis_line.a.z < WORLD_Z_START
-                x_axis_line.a.z = WORLD_Z_START
-            elsif x_axis_line.a.z > WORLD_Z_END
-                x_axis_line.a.z = WORLD_Z_END
-            end
-            if x_axis_line.b.z < WORLD_Z_START
-                x_axis_line.b.z = WORLD_Z_START
-            elsif x_axis_line.b.z > WORLD_Z_END
-                x_axis_line.b.z = WORLD_Z_END
-            end
-        end
-
-        modify do |n|
-            n.reset_visible_side
-        end
-        raycast_for_visibility
+        #modify do |n|
+        #    n.reset_visible_side
+        #end
+        #raycast_for_visibility
 
         calc_points
 
@@ -1074,9 +967,6 @@ class CubeRenderDisplay < Widget
     def dir_text 
         "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}   grid: #{@grid.determine_grid_x($center_x)}, #{@grid.determine_grid_y($center_z)}"
     end 
-    def axis_text 
-        "X Axis: #{@x_axis_lines[0].a.z} - #{@x_axis_lines[0].b.z}"
-    end
     def objects_text 
         "Objects: #{@all_objects.size} "
     end
@@ -1169,15 +1059,26 @@ class CubeRenderDisplay < Widget
             delta = t2 - t1 # in seconds
             puts "Raycast took #{delta} seconds"
         elsif id == Gosu::KbR
-            puts "------------"
-            puts "Lets raycast"
-            ray_line =  raycast(640) 
-            puts ray_line
-            slope = ray_line.slope 
-            puts slope
-            qfs = ray_line.quad_from_slope
-            
-            puts "Quad: #{qfs}  #{str_qfs}"
+            modify do |n|
+                if n.is_external 
+                    # do nothing
+                elsif n.is_a? Cube 
+                    # do nothing
+                elsif n.is_a? FloorTile 
+                    # do nothing
+                else
+                    n.set_visible_side(QUAD_ALL)
+                    n.color = COLOR_AQUA 
+                end
+            end
+            #puts "------------"
+            #puts "Lets raycast"
+            #ray_line =  raycast(640) 
+            #puts ray_line
+            #slope = ray_line.slope 
+            #puts slope
+            #qfs = ray_line.quad_from_slope
+            #puts "Quad: #{qfs}  #{str_qfs}"
         end
     end
 
@@ -1211,6 +1112,11 @@ class CubeRenderDisplay < Widget
                 if tile
                     quad = ray_data.quad_from_slope
                     tile.set_visible_side(quad)
+                    if tile.is_a? Cube 
+                        # do nothing
+                    else
+                        tile.color = COLOR_RED
+                    end
                     #puts "#{ray_data} ->  #{tile.class.name} #{@grid.determine_grid_x(tile.model_points[0].x)}, #{@grid.determine_grid_y(tile.model_points[0].z)}  #{display_quad(quad)}"
                 #else
                 #    puts "#{ray_data} ->  #{tile}."
@@ -1220,8 +1126,8 @@ class CubeRenderDisplay < Widget
     end
 
     def raycast(x, plane_x = 0, plane_y = 0.66) 
-        tile_x = @grid.determine_grid_x($center_x)
-        tile_y = @grid.determine_grid_y($center_z)
+        tile_x = @grid.determine_grid_x($camera_x)
+        tile_y = @grid.determine_grid_y($camera_z)
         adj_tile_x = tile_x + @grid.grid_x_offset
         adj_tile_y = tile_y + @grid.grid_y_offset
         drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)

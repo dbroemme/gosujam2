@@ -18,6 +18,7 @@ module RdiaGames
     ARG_Y_OFFSET = "y_offset"
 
     QUAD_NONE = -1
+    QUAD_ALL = 0
 
     #
     # The WadsApp class provides a simple starting point to quickly build a native
