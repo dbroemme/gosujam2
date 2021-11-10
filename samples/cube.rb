@@ -20,7 +20,7 @@ MODE_REAL_THREE_D = "real3d"
 AXIS_BEGIN = -500
 AXIS_END = 500
 
-class Point 
+class Point2D
     attr_accessor :x
     attr_accessor :y
     def initialize(x, y)
@@ -44,7 +44,7 @@ class IntersectionLine
       return nil if @a == other.a
       x = (other.b - @b).fdiv(@a - other.a)
       y = @a*x + @b
-      Point.new(x,y)
+      Point2D.new(x,y)
     end
    
     def to_s
@@ -147,7 +147,7 @@ class PointInsidePolygon
         end
      
         # Create a point for line segment from p to infinite
-        extreme = Point.new(INF, point.y)
+        extreme = Point2D.new(INF, point.y)
      
         # Count intersections of the above line
         # with sides of polygon
@@ -444,9 +444,6 @@ class ThreeDObject
                 return true 
             end
         end
-        
-        #elsif @model_points[1].z > $camera_z
-        #    puts "Not displaying line because 1 point z #{@render_points[1].z} > #{$camera_z}"
         @visible = true
         false
     end
@@ -1296,38 +1293,31 @@ class CubeRenderDisplay < Widget
             size_square = 1000
             dx, dz = perpendicular_direction_counter_clockwise(@dir_y, @dir_x)
             #side_left = ThreeDPoint.new(cx + (dx * size_square), 0, cz + (dz * size_square))
-            side_left = Point.new(cx + (dx * size_square), cz + (dz * size_square))
+            side_left = Point2D.new(cx + (dx * size_square), cz + (dz * size_square))
 
             dx, dz = perpendicular_direction_clockwise(@dir_y, @dir_x)
             #side_right = ThreeDPoint.new(cx + (dx * size_square), 0, cz + (dz * size_square))
-            side_right = Point.new(cx + (dx * size_square), cz + (dz * size_square))
+            side_right = Point2D.new(cx + (dx * size_square), cz + (dz * size_square))
 
             # TODO run this out to the edges of the world
             #      how to do best do that?
             #      line intersection seems non-trivial
             #forward_left = ThreeDPoint.new(side_left.x + (@dir_y * size_square), 0, side_left.z + (@dir_x * size_square))
             #forward_right = ThreeDPoint.new(side_right.x + (@dir_y * size_square), 0, side_right.z + (@dir_x * size_square))
-            forward_left = Point.new(side_left.x + (@dir_y * size_square), side_left.y + (@dir_x * size_square))
-            forward_right = Point.new(side_right.x + (@dir_y * size_square), side_right.y + (@dir_x * size_square))
+            forward_left = Point2D.new(side_left.x + (@dir_y * size_square), side_left.y + (@dir_x * size_square))
+            forward_right = Point2D.new(side_right.x + (@dir_y * size_square), side_right.y + (@dir_x * size_square))
             
             puts "Find intersecting lines with worlds edge"
             bottom_line = IntersectionLine.new(side_left, side_right)
-            world_left_edge = IntersectionLine.new(Point.new(WORLD_X_START, WORLD_Z_START), side_right)
+            world_left_edge = IntersectionLine.new(Point2D.new(WORLD_X_START, WORLD_Z_START), side_right)
 
-            l1 = IntersectionLine.new(Point.new(4, 0), Point.new(6, 10))
-            l2 = IntersectionLine.new(Point.new(0, 3), Point.new(10, 7))
+            l1 = IntersectionLine.new(Point2D.new(4, 0), Point2D.new(6, 10))
+            l2 = IntersectionLine.new(Point2D.new(0, 3), Point2D.new(10, 7))
             puts "Line #{l1} intersects line #{l2} at #{l1.intersect(l2)}."
 
 
             vb = [side_left, forward_left, forward_right, side_right]
 
-            #camera_point = Point.new($camera_x, -$camera_z)
-            #100.times do 
-            #    point = Point.new(cx, cz)
-            #    puts point
-            #    cx = cx + dx 
-            #    cz = cz + dz
-            #end
             puts "The visibility polygon is #{vb}"
 
             pip = PointInsidePolygon.new
@@ -1335,7 +1325,7 @@ class CubeRenderDisplay < Widget
                 if an_obj.is_external or an_obj.is_a? FloorTile 
                     # skip 
                 else 
-                    point = Point.new(an_obj.model_points[0].x, an_obj.model_points[0].z)
+                    point = Point2D.new(an_obj.model_points[0].x, an_obj.model_points[0].z)
                     
                     if pip.isInside(vb, 4, point)
                         # do nothing
