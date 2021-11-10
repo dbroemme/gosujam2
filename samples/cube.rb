@@ -32,6 +32,26 @@ class Point
     end
 end 
 
+class IntersectionLine
+    attr_reader :a, :b
+   
+    def initialize(point1, point2)
+      @a = (point1.y - point2.y).fdiv(point1.x - point2.x)
+      @b = point1.y - @a*point1.x
+    end
+   
+    def intersect(other)
+      return nil if @a == other.a
+      x = (other.b - @b).fdiv(@a - other.a)
+      y = @a*x + @b
+      Point.new(x,y)
+    end
+   
+    def to_s
+      "y = #{@a}x + #{@b}"
+    end   
+end
+
 class PointInsidePolygon
     # check if a given point lies inside a given polygon
     # Refer https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
@@ -39,7 +59,7 @@ class PointInsidePolygon
     # orientation() and doIntersect()
      
     # Define Infinite (Using INT_MAX caused overflow problems)
-    INF = 10000
+    INF = 100000
      
     # Given three collinear points p, q, r,
     # the function checks if point q lies
@@ -371,9 +391,10 @@ class ThreeDObject
     attr_accessor :speed
     attr_accessor :color
     attr_accessor :visible
-    attr_accessor :scale
     attr_accessor :visible_side
+    attr_accessor :scale
     attr_accessor :is_external
+    attr_accessor :render_z_order
 
     def initialize(color = COLOR_AQUA)
         @move_x = 0     # TODO make public?
@@ -523,20 +544,18 @@ class ThreeDObject
         end
         (0..3).each do |n|
             if n == 3
-                draw_line(points, n, 0, 10, override_color, z_order_to_use)
+                draw_line(points, n, 0, override_color, z_order_to_use)
             else 
-                draw_line(points, n, n + 1, 10, override_color, z_order_to_use)
+                draw_line(points, n, n + 1, override_color, z_order_to_use)
             end 
         end
     end
     
-    def draw_line(points, index1, index2, z = 10, override_color = nil, z_order_to_use = nil)
-        if z_order_to_use.nil? 
-            z_order_to_use = @render_z_order
-        end
+    def draw_line(points, index1, index2, override_color = nil, z_order_to_use = nil)
         point1 = points[index1]
         point2 = points[index2]
         color_to_use = override_color.nil? ? @color : override_color 
+        z_order_to_use = z_order_to_use.nil? ? @render_z_order : z_order_to_use
         Gosu::draw_line point1.x, point1.y, color_to_use, point2.x, point2.y, color_to_use, z_order_to_use
     end
 
@@ -649,12 +668,8 @@ class ThreeDLine < ThreeDObject
         @model_points[1]
     end
 
-    def render 
-        #if not $debug_once
-        #    puts "line #{a.x}, #{a.z} to #{b.x}, #{b.z} drawn at #{@render_points[0].x}, #{@render_points[0].y} to #{@render_points[1].x}, #{@render_points[1].y}"
-        #end
-        #$debug_once = true
-        draw_line(@render_points, 0, 1, 9)
+    def render(z_order_to_use = nil)
+        draw_line(@render_points, 0, 1, nil, z_order_to_use)
     end 
 
     def to_s 
@@ -734,6 +749,10 @@ class Wall < ThreeDObject
     end
 
     def render 
+        if not @visible 
+            puts "We should not draw #{self}"
+        end
+        #return unless @visible
         draw_top 
         if @is_external
             # Right now, only N/S/E/W quads are used for external walls
@@ -900,6 +919,7 @@ class CubeRenderDisplay < Widget
         @dir_y = 0   
         determine_directional_quadrant
 
+        @pause = false
         @speed = 10
         @mode = MODE_ISOMETRIC
         @continuous_movement = true
@@ -912,7 +932,7 @@ class CubeRenderDisplay < Widget
         # Our objects
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
         @all_objects = [@cube]
-        #@all_objects = []
+        @other_objects = []
 
         @grid = GridDisplay.new(0, 0, 100, 21, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
         instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
@@ -994,7 +1014,7 @@ class CubeRenderDisplay < Widget
     end 
 
     def add_to_maps(x, y, val)
-        puts "Array #{x},#{y} -> #{val}"
+        #puts "Array #{x},#{y} -> #{val}"
         @world_map[x][y] = val
         @raycast_map[y][x] = val
     end 
@@ -1036,7 +1056,7 @@ class CubeRenderDisplay < Widget
                 end
                 
                 if not img.nil?
-                    puts "#{grid_x},#{grid_y}  =  #{char}"
+                    puts "Set tile #{grid_x},#{grid_y}  =  #{char}"
                     grid.set_tile(grid_x, grid_y, img)
                     all_objects << img
                 end
@@ -1117,23 +1137,26 @@ class CubeRenderDisplay < Widget
                     n.render
                 end
             end
-        end 
 
-        # Temp draw what the raycast shows for the center x pixel
-        if @raycast_lines
-            @raycast_lines.each do |ray_line|
-                ray_line.draw 
-            end 
-        end
+            # Other objects are essentially debug objects
+            # we draw on top of everything else
+            @other_objects.each do |oo|
+                oo.render(20)
+            end
+        end 
     end
 
     def handle_update update_count, mouse_x, mouse_y
+        return if @pause
         modify do |n|
             n.reset_visible_side
         end
         raycast_for_visibility
 
         calc_points
+        @other_objects.each do |other_obj| 
+            other_obj.calc_points 
+        end
 
         @text_1.label = "Mouse: #{mouse_x}, #{mouse_y}"
         @text_2.label = camera_text
@@ -1169,10 +1192,9 @@ class CubeRenderDisplay < Widget
         "Objects: #{@all_objects.size} "
     end
     def cube_text 
-        #"Cube: #{@cube.model_points[0].x}, #{@cube.model_points[0].y}, #{@cube.model_points[0].z}"
-        if @dir_cube
-            return "Dir Cube: #{@dir_cube.model_points[0].x.round(2)}, #{@dir_cube.model_points[0].y.round(2)}, #{@dir_cube.model_points[0].z.round(2)}"
-        end
+        #if @dir_cube
+        #    return "Dir Cube: #{@dir_cube.model_points[0].x.round(2)}, #{@dir_cube.model_points[0].y.round(2)}, #{@dir_cube.model_points[0].z.round(2)}"
+        #end
         "" 
     end
 
@@ -1240,22 +1262,107 @@ class CubeRenderDisplay < Widget
             if @speed < 5
                 @speed = 5
             end
-        elsif id == Gosu::KbE
+        elsif id == Gosu::KbC
             puts "------------"
-            #$stats.display_counts
-            #puts "Lets raycast"
-            #puts "NOTE: right now this is not doing anything"
             # Send a ray the direction we are looking (direction vector)
             # and see what it hits
-            t1 = Time.now
+            #t1 = Time.now
+            #raycast_for_visibility
+            #t2 = Time.now
+            #delta = t2 - t1 # in seconds
+            #puts "Raycast took #{delta} seconds"
             #(0..1279).each do |x|
-            #    ray_line = raycast(x) 
-            #    puts ray_line
+            #    ray_data = raycast(x) 
+            #    puts "[#{x}]  #{ray_data}"
             #end
-            raycast_for_visibility
-            t2 = Time.now
-            delta = t2 - t1 # in seconds
-            puts "Raycast took #{delta} seconds"
+            #puts " "
+            
+            #left_ray_data = raycast(0)
+            #puts "left:  #{left_ray_data}"
+            #left_point = Point.new(left_ray_data.map_y * 100, left_ray_data.map_x * 100)
+            #middle_ray_data = raycast(640)
+            #puts "mid:   #{middle_ray_data}"
+            #right_ray_data = raycast(GAME_WIDTH)
+            #puts "right: #{right_ray_data}"
+            #right_point = Point.new(right_ray_data.map_y * 100, right_ray_data.map_x * 100)
+            #vb = [camera_point, left_point, right_point]
+            #vb = visibility_polygon
+            
+            #cx = $camera_x
+            #cz = -$camera_z
+            cx = $center_x
+            cz = $center_z
+
+            size_square = 1000
+            dx, dz = perpendicular_direction_counter_clockwise(@dir_y, @dir_x)
+            #side_left = ThreeDPoint.new(cx + (dx * size_square), 0, cz + (dz * size_square))
+            side_left = Point.new(cx + (dx * size_square), cz + (dz * size_square))
+
+            dx, dz = perpendicular_direction_clockwise(@dir_y, @dir_x)
+            #side_right = ThreeDPoint.new(cx + (dx * size_square), 0, cz + (dz * size_square))
+            side_right = Point.new(cx + (dx * size_square), cz + (dz * size_square))
+
+            # TODO run this out to the edges of the world
+            #      how to do best do that?
+            #      line intersection seems non-trivial
+            #forward_left = ThreeDPoint.new(side_left.x + (@dir_y * size_square), 0, side_left.z + (@dir_x * size_square))
+            #forward_right = ThreeDPoint.new(side_right.x + (@dir_y * size_square), 0, side_right.z + (@dir_x * size_square))
+            forward_left = Point.new(side_left.x + (@dir_y * size_square), side_left.y + (@dir_x * size_square))
+            forward_right = Point.new(side_right.x + (@dir_y * size_square), side_right.y + (@dir_x * size_square))
+            
+            puts "Find intersecting lines with worlds edge"
+            bottom_line = IntersectionLine.new(side_left, side_right)
+            world_left_edge = IntersectionLine.new(Point.new(WORLD_X_START, WORLD_Z_START), side_right)
+
+            l1 = IntersectionLine.new(Point.new(4, 0), Point.new(6, 10))
+            l2 = IntersectionLine.new(Point.new(0, 3), Point.new(10, 7))
+            puts "Line #{l1} intersects line #{l2} at #{l1.intersect(l2)}."
+
+
+            vb = [side_left, forward_left, forward_right, side_right]
+
+            #camera_point = Point.new($camera_x, -$camera_z)
+            #100.times do 
+            #    point = Point.new(cx, cz)
+            #    puts point
+            #    cx = cx + dx 
+            #    cz = cz + dz
+            #end
+            puts "The visibility polygon is #{vb}"
+
+            pip = PointInsidePolygon.new
+            @all_objects.each do |an_obj|
+                if an_obj.is_external or an_obj.is_a? FloorTile 
+                    # skip 
+                else 
+                    point = Point.new(an_obj.model_points[0].x, an_obj.model_points[0].z)
+                    
+                    if pip.isInside(vb, 4, point)
+                        # do nothing
+                        puts "Inside #{an_obj}"
+                        an_obj.color = COLOR_AQUA
+                    else
+                        puts "Setting #{an_obj} to invisible"
+                        an_obj.color = COLOR_LIME
+                        #@all_objects.delete(an_obj)
+                    end
+                end 
+            end 
+
+            @other_objects = []
+            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[0].x, 0, vb[0].y), ThreeDPoint.new(vb[1].x, 0, vb[1].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[1].x, 0, vb[1].y), ThreeDPoint.new(vb[2].x, 0, vb[2].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[2].x, 0, vb[2].y), ThreeDPoint.new(vb[3].x, 0, vb[3].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[3].x, 0, vb[3].y), ThreeDPoint.new(vb[0].x, 0, vb[0].y), COLOR_RED)
+        
+        
+        
+        
+        
+        
+        
+        
+        
         elsif id == Gosu::KbR
             modify do |n|
                 if n.is_external 
@@ -1277,87 +1384,21 @@ class CubeRenderDisplay < Widget
             #puts slope
             #qfs = ray_line.quad_from_slope
             #puts "Quad: #{qfs}  #{str_qfs}"
-        elsif id == Gosu::KbC 
-            # Driver Code
-            pip = PointInsidePolygon.new
-
-            #puts "First test the onSegment function"
-            #puts pip.onSegment(Point.new(0, 0), Point.new(0, 0), Point.new(5, 5))
-            #puts pip.onSegment(Point.new(0, 0), Point.new(3, 3), Point.new(5, 5))
-            #puts " "
-            #puts "Now lets test orientation"
-            #puts pip.orientation(Point.new(0, 0), Point.new(3, 3), Point.new(5, 5))
-            #puts pip.orientation(Point.new(0, 0), Point.new(2, 3), Point.new(5, 5))
-            #puts pip.orientation(Point.new(0, 0), Point.new(3, 2), Point.new(5, 5))
-            #puts " "
-            # 0 --> p, q and r are collinear
-            # 1 --> Clockwise
-            # 2 --> Counterclockwise
-
-            # The function that returns true if
-            # line segment 'p1q1' and 'p2q2' intersect.
-            # doIntersect(p1, q1, p2, q2)
-            #puts "Now lets test doIntersect"
-            #puts pip.doIntersect(Point.new(0, 0), Point.new(3, 3), Point.new(2, 2), Point.new(4, 0))
-            #puts pip.doIntersect(Point.new(0, 0), Point.new(3, 3), Point.new(-1, -1), Point.new(-2, -2))
-            #puts " "
-
-            puts "-----"
-            puts "Lets test the point in polygon logic"
-
-            polygon1 = [Point.new(0, 0), Point.new(10, 0), Point.new(10, 10), Point.new(0, 10)]
-            n = polygon1.length
-            point = Point.new(20, 20)
-            if pip.isInside(polygon1, n, point)
-                puts("20,20 Yes (should be No) WRONG")
-            else
-                puts("20,20 No (should be No)")
-            end
-
-
-            point = Point.new(5, 5)
-            if pip.isInside(polygon1, n, point)
-                puts("5, 5 Yes (should be Yes)")
-            else
-                puts("5, 5 No (should be Yes) WRONG")
-            end
-
-            polygon2 = [Point.new(0, 0), Point.new(5, 5), Point.new(5, 0)]
-            point = Point.new(3, 3)
-            n = polygon2.length
-            if pip.isInside(polygon2, n, point)
-                puts("3, 3 Yes (should be Yes)")
-            else
-                puts("3, 3 No (should be Yes) WRONG")
-            end
-
-            point = Point.new(5, 1)
-            if pip.isInside(polygon2, n, point)
-                puts("5, 1 Yes (should be Yes)")
-            else
-                puts("5, 1 No (should be Yes) WRONG")
-            end
-
-            point = Point.new(8, 1)
-            if pip.isInside(polygon2, n, point)
-                puts("8, 1 Yes (should be No) WRONG")
-            else
-                puts("8, 1 No (should be No)")
-            end
-
-            polygon3 = [Point.new(0, 0), Point.new(10, 0), Point.new(10, 10), Point.new(0, 10)]
-            point = Point.new(-1, 10)
-            n = polygon3.length
-            if pip.isInside(polygon3, n, point)
-                puts("-1, 10 Yes (should be No) WRONG")
-            else
-                puts("-1, 10 No (should be No)")
-            end
-
-            5.times do 
-                puts " "
-            end
+        elsif id == Gosu::KbV 
+            @pause = !@pause
         end
+    end
+
+    def visibility_polygon
+        # TODO put the code back here
+    end 
+
+    def perpendicular_direction_clockwise(x, y)
+        [y, -x]
+    end
+
+    def perpendicular_direction_counter_clockwise(x, y)
+        [-y, x]
     end
 
     def display_quad(qfs)
@@ -1406,8 +1447,10 @@ class CubeRenderDisplay < Widget
     end
 
     def raycast(x, plane_x = 0, plane_y = 0.66) 
-        tile_x = @grid.determine_grid_x($camera_x)
-        tile_y = @grid.determine_grid_y($camera_z)
+        #tile_x = @grid.determine_grid_x($camera_x)   # If you really see what is visible, use the camera
+        #tile_y = @grid.determine_grid_y($camera_z)
+        tile_x = @grid.determine_grid_x($center_x)
+        tile_y = @grid.determine_grid_y($center_z)
         adj_tile_x = tile_x + @grid.grid_x_offset
         adj_tile_y = tile_y + @grid.grid_y_offset
         drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
@@ -1433,37 +1476,27 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_movement id, mouse_x, mouse_y 
-        #if id == Gosu::KbA
         #    @cube.move_left
-        #elsif id == Gosu::KbD
         #    @cube.move_right
-        #elsif id == Gosu::KbQ
         #    @cube.move_up
-        #elsif id == Gosu::KbE
         #    @cube.move_down
-        #elsif id == Gosu::KbW
         #    @cube.move_towards
-        #elsif id == Gosu::KbS
         #    @cube.move_away
         #elsif id == Gosu::KbU              # change camera elevation later, don't need it now
         #    $camera_y = $camera_y - @speed
         #elsif id == Gosu::KbO              # change camera elevation later, don't need it now
         #    $camera_y = $camera_y + @speed
 
-        #
-        # Lateral movement. We aren't really using this righ tnow
-        #
-        if id == Gosu::KbU
+        if id == Gosu::KbQ
+            # Lateral movement
             $camera_x = $camera_x + @speed
             $center_x = $center_x - @speed
-        elsif id == Gosu::KbO
+        elsif id == Gosu::KbE
+            # Lateral movement
             $camera_x = $camera_x - @speed
             $center_x = $center_x + @speed
-
-        #
-        # Primary movement keys
-        #
         elsif id == Gosu::KbW
+            # Primary movement keys (WASD)
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
@@ -1543,24 +1576,6 @@ class CubeRenderDisplay < Widget
         #elsif id == Gosu::KbG
         #    modify do |n|
         #        n.angle_z = n.angle_z + 0.05
-        #    end
-        #elsif id == Gosu::KbM 
-            #delta_x = Math.cos(DEG_45)
-            #delta_z = Math.sin(DEG_45)
-            #amount_x = delta_x * 800.to_f
-            #amount_z = delta_z * 800.to_f
-            #puts "Delta #{delta_x}, #{delta_z}  =>  #{amount_x}, #{amount_z}"
-            #$center_x = $center_x + amount_x
-            #$center_z = $center_z + amount_z
-            #modify do |n|
-            #    n.angle_y = DEG_45
-            #end   
-        #    $center_z = -300
-        #elsif id == Gosu::KbPeriod
-        #    $center_x = $center_x + 10
-        #    $center_z = $center_z + 10
-        #    modify do |n|
-        #        n.angle_y = n.angle_y - 0.05
         #    end
         end
     end
