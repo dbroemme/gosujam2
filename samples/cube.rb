@@ -20,6 +20,153 @@ MODE_REAL_THREE_D = "real3d"
 AXIS_BEGIN = -500
 AXIS_END = 500
 
+class Point 
+    attr_accessor :x
+    attr_accessor :y
+    def initialize(x, y)
+        @x = x 
+        @y = y 
+    end
+    def to_s 
+        "Point #{x}, #{y}"
+    end
+end 
+
+class PointInsidePolygon
+    # check if a given point lies inside a given polygon
+    # Refer https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+    # for explanation of functions onSegment(),
+    # orientation() and doIntersect()
+     
+    # Define Infinite (Using INT_MAX caused overflow problems)
+    INF = 10000
+     
+    # Given three collinear points p, q, r,
+    # the function checks if point q lies
+    # on line segment 'pr'
+    def onSegment(point, q, r)
+        #puts "onSgement q.x <= [point.x, r.x].max   #{q.x <= [point.x, r.x].max}"
+        #puts "onSgement q.x >= [point.x, r.x].min   #{q.x >= [point.x, r.x].min}"
+        #puts "  q.x: #{q.x}  point.x: #{point.x}   r.x: #{r.x}  min #{[point.x, r.x].min}"
+        #puts "onSgement q.y <= [point.y, r.y].max   #{q.y <= [point.y, r.y].max}"
+        #puts "onSgement q.y >= [point.y, r.y].min   #{q.y >= [point.y, r.y].min}"
+        if q.x <= [point.x, r.x].max and
+           q.x >= [point.x, r.x].min and
+           q.y <= [point.y, r.y].max and
+           q.y >= [point.y, r.y].min
+            return true
+        end
+        false
+    end
+     
+    # To find orientation of ordered triplet (p, q, r).
+    # The function returns following values
+    # 0 --> p, q and r are collinear
+    # 1 --> Clockwise
+    # 2 --> Counterclockwise
+    def orientation(point, q, r)
+        val = (q.y - point.y) * (r.x - q.x) - (q.x - point.x) * (r.y - q.y)
+    
+        if val == 0
+            return 0  # collinear
+        end
+        return (val > 0) ? 1 : 2  # clock or counterclock wise
+    end
+     
+    # The function that returns true if
+    # line segment 'p1q1' and 'p2q2' intersect.
+    def doIntersect(p1, q1, p2, q2)
+        # Find the four orientations needed for
+        # general and special cases
+        o1 = orientation(p1, q1, p2)   # these are ints
+        o2 = orientation(p1, q1, q2)
+        o3 = orientation(p2, q2, p1)
+        o4 = orientation(p2, q2, q1)
+     
+        # General case
+        if (o1 != o2 and o3 != o4)
+            return true
+        end
+     
+        # Special Cases
+        # p1, q1 and p2 are collinear and
+        # p2 lies on segment p1q1
+        if o1 == 0 and onSegment(p1, p2, q1)
+            return true
+        end
+     
+        # p1, q1 and p2 are collinear and
+        # q2 lies on segment p1q1
+        if o2 == 0 and onSegment(p1, q2, q1)
+            return true
+        end
+     
+        # p2, q2 and p1 are collinear and
+        # p1 lies on segment p2q2
+        if o3 == 0 and onSegment(p2, p1, q2)
+            return true
+        end
+     
+        # p2, q2 and q1 are collinear and
+        # q1 lies on segment p2q2
+        if o4 == 0 and onSegment(p2, q1, q2)
+            return true
+        end
+     
+        # Doesn't fall in any of the above cases
+        return false
+    end
+     
+    # Returns true if the point p lies
+    # inside the polygon[] with n vertices
+    # isInside(Point polygon[], int n, Point p)
+    def isInside(polygon, n, point)
+        # There must be at least 3 vertices in polygon[]
+        if (n < 3)
+            return false
+        end
+     
+        # Create a point for line segment from p to infinite
+        extreme = Point.new(INF, point.y)
+     
+        # Count intersections of the above line
+        # with sides of polygon
+        count = 0    # int
+        i = 0        # int
+        loop do
+            next_int = (i + 1) % n
+            #puts "next_int: #{next_int}   i: #{i}"
+    
+            # Check if the line segment from 'p' to
+            # 'extreme' intersects with the line
+            # segment from 'polygon[i]' to 'polygon[next]'
+            #puts "Checking intersect [#{polygon[i]}, #{polygon[next_int]}], [#{point}, #{extreme}]"
+            if doIntersect(polygon[i], polygon[next_int], point, extreme)
+                #puts "#{i} did intersect"
+                # If the point 'p' is collinear with line
+                # segment 'i-next', then check if it lies
+                # on segment. If it lies, return true, otherwise false
+                if orientation(polygon[i], point, polygon[next_int]) == 0
+                    #puts "#{i} was colinear"
+                    return onSegment(polygon[i], point, polygon[next_int])
+                end
+    
+                count = count + 1
+            #else 
+            #    puts "#{i} no intersect"
+            end
+            i = next_int
+            break if i == 0
+        end
+    
+        # Return true if count is odd, false otherwise
+        #puts "returning (count % 2 == 1) for count #{count}"
+        return (count % 2 == 1)  # Same as (count%2 == 1)
+    end
+     
+    # This code is contributed by 29AjayKumar
+end 
+
 class RayCastData 
     attr_accessor :x
     attr_accessor :tile_x
@@ -1130,6 +1277,86 @@ class CubeRenderDisplay < Widget
             #puts slope
             #qfs = ray_line.quad_from_slope
             #puts "Quad: #{qfs}  #{str_qfs}"
+        elsif id == Gosu::KbC 
+            # Driver Code
+            pip = PointInsidePolygon.new
+
+            #puts "First test the onSegment function"
+            #puts pip.onSegment(Point.new(0, 0), Point.new(0, 0), Point.new(5, 5))
+            #puts pip.onSegment(Point.new(0, 0), Point.new(3, 3), Point.new(5, 5))
+            #puts " "
+            #puts "Now lets test orientation"
+            #puts pip.orientation(Point.new(0, 0), Point.new(3, 3), Point.new(5, 5))
+            #puts pip.orientation(Point.new(0, 0), Point.new(2, 3), Point.new(5, 5))
+            #puts pip.orientation(Point.new(0, 0), Point.new(3, 2), Point.new(5, 5))
+            #puts " "
+            # 0 --> p, q and r are collinear
+            # 1 --> Clockwise
+            # 2 --> Counterclockwise
+
+            # The function that returns true if
+            # line segment 'p1q1' and 'p2q2' intersect.
+            # doIntersect(p1, q1, p2, q2)
+            #puts "Now lets test doIntersect"
+            #puts pip.doIntersect(Point.new(0, 0), Point.new(3, 3), Point.new(2, 2), Point.new(4, 0))
+            #puts pip.doIntersect(Point.new(0, 0), Point.new(3, 3), Point.new(-1, -1), Point.new(-2, -2))
+            #puts " "
+
+            puts "-----"
+            puts "Lets test the point in polygon logic"
+
+            polygon1 = [Point.new(0, 0), Point.new(10, 0), Point.new(10, 10), Point.new(0, 10)]
+            n = polygon1.length
+            point = Point.new(20, 20)
+            if pip.isInside(polygon1, n, point)
+                puts("20,20 Yes (should be No) WRONG")
+            else
+                puts("20,20 No (should be No)")
+            end
+
+
+            point = Point.new(5, 5)
+            if pip.isInside(polygon1, n, point)
+                puts("5, 5 Yes (should be Yes)")
+            else
+                puts("5, 5 No (should be Yes) WRONG")
+            end
+
+            polygon2 = [Point.new(0, 0), Point.new(5, 5), Point.new(5, 0)]
+            point = Point.new(3, 3)
+            n = polygon2.length
+            if pip.isInside(polygon2, n, point)
+                puts("3, 3 Yes (should be Yes)")
+            else
+                puts("3, 3 No (should be Yes) WRONG")
+            end
+
+            point = Point.new(5, 1)
+            if pip.isInside(polygon2, n, point)
+                puts("5, 1 Yes (should be Yes)")
+            else
+                puts("5, 1 No (should be Yes) WRONG")
+            end
+
+            point = Point.new(8, 1)
+            if pip.isInside(polygon2, n, point)
+                puts("8, 1 Yes (should be No) WRONG")
+            else
+                puts("8, 1 No (should be No)")
+            end
+
+            polygon3 = [Point.new(0, 0), Point.new(10, 0), Point.new(10, 10), Point.new(0, 10)]
+            point = Point.new(-1, 10)
+            n = polygon3.length
+            if pip.isInside(polygon3, n, point)
+                puts("-1, 10 Yes (should be No) WRONG")
+            else
+                puts("-1, 10 No (should be No)")
+            end
+
+            5.times do 
+                puts " "
+            end
         end
     end
 
