@@ -147,7 +147,7 @@ class CubeRenderDisplay < Widget
         "Angle: #{@engine.camera_angle.x.round(2)}, #{@engine.camera_angle.y.round(2)}, #{@engine.camera_angle.z.round(2)}"
     end 
     def dir_text 
-        "Direction: #{@engine.direction_y.round(2)}, #{@engine.direction_x.round(2)}    quad: #{@engine.direction_quadrant}   grid: #{@game_world.grid.determine_grid_x(@engine.center.x)}, #{@game_world.grid.determine_grid_y(@engine.center.z)}"
+        "Direction: #{@engine.direction_y.round(2)}, #{@engine.direction_x.round(2)}    quad: #{@engine.direction_quadrant}   grid: #{@game_world.determine_grid_x(@engine.center.x)}, #{@game_world.determine_grid_y(@engine.center.z)}"
     end 
     def objects_text 
         "Objects: #{@engine.all_objects.size} "

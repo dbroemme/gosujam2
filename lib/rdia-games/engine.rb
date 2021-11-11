@@ -7,7 +7,6 @@ module RdiaGames
     RDIA_SCALE = 0.001
 
     class GameWorld
-        attr_accessor :grid
         attr_accessor :world_map
         attr_accessor :raycast_map
 
@@ -17,6 +16,26 @@ module RdiaGames
             # and refactored to not be grid display anymore but a 3D centric version of it
             @grid = GridDisplay.new(0, 0, 100, 21, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
         end 
+
+        def determine_grid_x(x)
+            @grid.determine_grid_x(x)
+        end
+
+        def determine_grid_y(y)
+            @grid.determine_grid_y(y)
+        end
+
+        def grid_x_offset
+            @grid.grid_x_offset
+        end
+
+        def grid_y_offset
+            @grid.grid_y_offset
+        end
+
+        def get_tile(tile_x, tile_y)
+            @grid.get_tile(tile_x, tile_y)
+        end
 
         def load 
             new_objects = instantiate_elements(File.readlines("./data/editor_board.txt")) 
@@ -46,12 +65,12 @@ module RdiaGames
         def instantiate_elements(dsl)
             created_objects = []
             @world_map = Array.new(@grid.grid_width) do |x|
-                Array.new(grid.grid_height) do |y|
+                Array.new(@grid.grid_height) do |y|
                     0
                 end 
             end 
-            @raycast_map = Array.new(grid.grid_height) do |y|
-                Array.new(grid.grid_width) do |x|
+            @raycast_map = Array.new(@grid.grid_height) do |y|
+                Array.new(@grid.grid_width) do |x|
                     0
                 end 
             end 
@@ -116,8 +135,6 @@ module RdiaGames
             #puts "tile_x/y:  #{tile_x}, #{tile_y}"
             @world_map[tile_x][tile_y]
         end 
-    
-    
     end 
 
     class Engine
@@ -437,15 +454,15 @@ module RdiaGames
         def raycast(x, game_width, plane_x = 0, plane_y = 0.66) 
             #tile_x = @grid.determine_grid_x($camera.x)   # If you really see what is visible, use the camera
             #tile_y = @grid.determine_grid_y($camera.z)
-            tile_x = @game_world.grid.determine_grid_x(@center.x)
-            tile_y = @game_world.grid.determine_grid_y(@center.z)
-            adj_tile_x = tile_x + @game_world.grid.grid_x_offset
-            adj_tile_y = tile_y + @game_world.grid.grid_y_offset
+            tile_x = @game_world.determine_grid_x(@center.x)
+            tile_y = @game_world.determine_grid_y(@center.z)
+            adj_tile_x = tile_x + @game_world.grid_x_offset
+            adj_tile_y = tile_y + @game_world.grid_y_offset
             mapX, mapY, side, orig_map_x, orig_map_y = ray(x, adj_tile_y, adj_tile_x, @direction_x, @direction_y, plane_x, plane_y, game_width)
-            adj_map_x = mapX - @game_world.grid.grid_y_offset   # The raycast map is set the other way
-            adj_map_y = mapY - @game_world.grid.grid_x_offset
-            adj_orig_map_x = orig_map_x - @game_world.grid.grid_y_offset
-            adj_orig_map_y = orig_map_y - @game_world.grid.grid_x_offset
+            adj_map_x = mapX - @game_world.grid_y_offset   # The raycast map is set the other way
+            adj_map_y = mapY - @game_world.grid_x_offset
+            adj_orig_map_x = orig_map_x - @game_world.grid_y_offset
+            adj_orig_map_y = orig_map_y - @game_world.grid_x_offset
     
             at_ray = @game_world.raycast_map[mapX][mapY]
             
@@ -457,7 +474,7 @@ module RdiaGames
                 ray_data = raycast(x, game_width) 
                 if ray_data.at_ray != 0
                     # Get the tile at this spot
-                    tile = @game_world.grid.get_tile(ray_data.map_y, ray_data.map_x)
+                    tile = @game_world.get_tile(ray_data.map_y, ray_data.map_x)
                     if tile
                         quad = ray_data.quad_from_slope
                         tile.set_visible_side(quad)
