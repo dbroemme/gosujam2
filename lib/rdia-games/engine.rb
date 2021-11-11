@@ -6,7 +6,112 @@ include Wads
 module RdiaGames
     RDIA_SCALE = 0.001
 
+    class GameWorld
+        attr_accessor :grid
+        attr_accessor :world_map
+        attr_accessor :raycast_map
+
+        def initialize(image_tile_18)
+            @image_tile_18 = image_tile_18
+            # TODO this needs to be parameterized
+            # and refactored to not be grid display anymore but a 3D centric version of it
+            @grid = GridDisplay.new(0, 0, 100, 21, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
+        end 
+
+        def load 
+            new_objects = instantiate_elements(File.readlines("./data/editor_board.txt")) 
+            puts "World Map"
+            puts "---------"
+            (0..94).each do |y|
+                str = ""
+                (0..20).each do |x|
+                    str = "#{str}#{@world_map[x][y]}"
+                end 
+                puts str
+            end
+    
+            puts "Raycast Map"
+            puts "-----------"
+            (0..20).each do |y|
+                str = ""
+                (0..94).each do |x|
+                    str = "#{str}#{@raycast_map[x][y]}"
+                end 
+                puts str
+            end
+
+            new_objects
+        end 
+
+        def instantiate_elements(dsl)
+            created_objects = []
+            @world_map = Array.new(@grid.grid_width) do |x|
+                Array.new(grid.grid_height) do |y|
+                    0
+                end 
+            end 
+            @raycast_map = Array.new(grid.grid_height) do |y|
+                Array.new(grid.grid_width) do |x|
+                    0
+                end 
+            end 
+            @grid.clear_tiles
+            grid_y = 89
+            grid_x = -10
+            dsl.each do |line|
+                index = 0
+                while index < line.size
+                    char = line[index..index+1].strip
+                    img = nil
+                    # set_tile is already using the grid offsets, but here
+                    # we are directly creating a world map array so we need
+                    # to use the same offsets
+                    # So the Grid should probably do this, not here, but oh well
+                    array_grid_x = grid_x + @grid.grid_x_offset
+                    array_grid_y = grid_y + @grid.grid_y_offset
+                    #if char == "B"
+                    #    img = Brick.new(@blue_brick)
+                    if char == "5"
+                        # ignore 5 because we manually constructed the wall using bigger chunks
+                        add_to_maps(array_grid_x, array_grid_y, 5)
+                        #img = Wall.new(grid_x * 100, grid_y * 100)
+                    elsif char == "18"
+                        add_to_maps(array_grid_x, array_grid_y, 18)
+                        img = Wall.new(grid_x * 100, grid_y * 100, 100, 100, @image_tile_18)
+                    end
+                    
+                    if not img.nil?
+                        puts "Set tile #{grid_x},#{grid_y}  =  #{char}"
+                        @grid.set_tile(grid_x, grid_y, img)
+                        created_objects << img
+                    end
+    
+                    grid_x = grid_x + 1
+                    index = index + 2
+                end
+                grid_x = -10
+                grid_y = grid_y - 1
+            end
+
+            # Return the collection of objects we created so they can
+            # be registered with the engine
+            created_objects
+        end 
+
+
+        def add_to_maps(x, y, val)
+            #puts "Array #{x},#{y} -> #{val}"
+            @world_map[x][y] = val
+            @raycast_map[y][x] = val
+        end 
+
+        def add_object(obj)
+            # TODO somehow this needs to call the equivalent of set tile, I think
+        end
+    end 
+
     class Engine
+        attr_accessor :game_world
         attr_accessor :camera
         attr_accessor :camera_angle
         attr_accessor :center
@@ -16,7 +121,8 @@ module RdiaGames
         attr_accessor :all_objects
         attr_accessor :debug_objects
 
-        def initialize(camera = nil, center = nil, direction = nil)
+        def initialize(game_world, camera = nil, center = nil, direction = nil)
+            @game_world = game_world
             @all_objects = []
             @debug_objects = []
             @cos_cache = {}
@@ -47,6 +153,22 @@ module RdiaGames
             end
             @direction_quadrant = QUAD_N
         end 
+
+        def load_game_world 
+            # TODO give the engine a reference to the game world
+            #      so when you add an object to the engine, it also adds it to the world
+            #      so that method will need to translate between points and grid
+            world_objects = @game_world.load
+            world_objects.each do |wo|
+                puts "Load game world adding #{wo}   #{wo.class.name}"
+                add_object(wo)
+            end 
+        end 
+
+        def add_object(obj)
+            @all_objects << obj 
+            @game_world.add_object(obj)
+        end
 
         def pan_camera(rate)
             @camera_angle.y = @camera_angle.y + rate
@@ -103,10 +225,6 @@ module RdiaGames
     
         def perpendicular_direction_counter_clockwise(x, y)
             [-y, x]
-        end
-
-        def add_object(obj)
-            @all_objects << obj 
         end
 
         def modify_all_objects(&block)
@@ -227,7 +345,7 @@ module RdiaGames
             end 
         end
 
-        def ray(x, posX, posY, dirX, dirY, planeX, planeY, world_map, screen_width)
+        def ray(x, posX, posY, dirX, dirY, planeX, planeY, screen_width)
             # calculate ray position and direction
             cameraX = (2 * (x / screen_width.to_f)) - 1;   # x-coordinate in camera space
             rayDirX = dirX + (planeX * cameraX)
@@ -292,8 +410,13 @@ module RdiaGames
                     side = 1
                 end
                 # Check if ray has hit a wall
-                if world_map[mapX][mapY] > 0
-                    hit = 1
+                begin
+                    if @game_world.raycast_map[mapX][mapY] > 0
+                        hit = 1
+                    end
+                rescue 
+                    puts "failed looking at @game_world.world_map[#{mapX}][#{mapY}]"
+                    exit
                 end
                 #puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
             end
@@ -301,30 +424,30 @@ module RdiaGames
             [mapX, mapY, side, orig_map_x, orig_map_y]
         end
 
-        def raycast(x, grid, raycast_map, game_width, plane_x = 0, plane_y = 0.66) 
+        def raycast(x, game_width, plane_x = 0, plane_y = 0.66) 
             #tile_x = @grid.determine_grid_x($camera.x)   # If you really see what is visible, use the camera
             #tile_y = @grid.determine_grid_y($camera.z)
-            tile_x = grid.determine_grid_x(@center.x)
-            tile_y = grid.determine_grid_y(@center.z)
-            adj_tile_x = tile_x + grid.grid_x_offset
-            adj_tile_y = tile_y + grid.grid_y_offset
-            mapX, mapY, side, orig_map_x, orig_map_y = ray(x, adj_tile_y, adj_tile_x, @direction_x, @direction_y, plane_x, plane_y, raycast_map, game_width)
-            adj_map_x = mapX - grid.grid_y_offset   # The raycast map is set the other way
-            adj_map_y = mapY - grid.grid_x_offset
-            adj_orig_map_x = orig_map_x - grid.grid_y_offset
-            adj_orig_map_y = orig_map_y - grid.grid_x_offset
+            tile_x = @game_world.grid.determine_grid_x(@center.x)
+            tile_y = @game_world.grid.determine_grid_y(@center.z)
+            adj_tile_x = tile_x + @game_world.grid.grid_x_offset
+            adj_tile_y = tile_y + @game_world.grid.grid_y_offset
+            mapX, mapY, side, orig_map_x, orig_map_y = ray(x, adj_tile_y, adj_tile_x, @direction_x, @direction_y, plane_x, plane_y, game_width)
+            adj_map_x = mapX - @game_world.grid.grid_y_offset   # The raycast map is set the other way
+            adj_map_y = mapY - @game_world.grid.grid_x_offset
+            adj_orig_map_x = orig_map_x - @game_world.grid.grid_y_offset
+            adj_orig_map_y = orig_map_y - @game_world.grid.grid_x_offset
     
-            at_ray = raycast_map[mapX][mapY]
+            at_ray = @game_world.raycast_map[mapX][mapY]
             
             RayCastData.new(x, tile_x, tile_y, adj_map_x, adj_map_y, at_ray, side, adj_orig_map_x, adj_orig_map_y)
         end
 
-        def raycast_for_visibility(grid, raycast_map, game_width)
+        def raycast_for_visibility(game_width)
             (0..1279).each do |x|
-                ray_data = raycast(x, grid, raycast_map, game_width) 
+                ray_data = raycast(x, game_width) 
                 if ray_data.at_ray != 0
                     # Get the tile at this spot
-                    tile = grid.get_tile(ray_data.map_y, ray_data.map_x)
+                    tile = @game_world.grid.get_tile(ray_data.map_y, ray_data.map_x)
                     if tile
                         quad = ray_data.quad_from_slope
                         tile.set_visible_side(quad)

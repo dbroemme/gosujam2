@@ -39,8 +39,13 @@ class CubeRenderDisplay < Widget
         @image_external_wall = Gosu::Image.new("./media/tile5.png")
         @image_tile_18 = Gosu::Image.new("./media/tile18.png")
 
-        @engine = Engine.new(Point3D.new(0, 150,  800), # camera
+        @game_world = GameWorld.new(@image_tile_18)
+
+        @engine = Engine.new(@game_world,
+                             Point3D.new(0, 150,  800), # camera
                              Point3D.new(0,   0, -300)) # center
+        @engine.load_game_world  # TODO implement this as a wrapper to game world
+
 
         @pause = false
         @speed = 10
@@ -50,27 +55,6 @@ class CubeRenderDisplay < Widget
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
         @engine.add_object(@cube)
 
-        @grid = GridDisplay.new(0, 0, 100, 21, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
-        instantiate_elements(@grid, @engine, File.readlines("./data/editor_board.txt")) 
-        puts "World Map"
-        puts "---------"
-        (0..94).each do |y|
-            str = ""
-            (0..20).each do |x|
-                str = "#{str}#{@world_map[x][y]}"
-            end 
-            puts str
-        end
-
-        puts "Raycast Map"
-        puts "-----------"
-        (0..20).each do |y|
-            str = ""
-            (0..94).each do |x|
-                str = "#{str}#{@raycast_map[x][y]}"
-            end 
-            puts str
-        end
 
         # Near and far walls
         x = -1000
@@ -87,10 +71,10 @@ class CubeRenderDisplay < Widget
         # Side walls
         z = -500
         while z < 8910
-            left_wall = Wall.new(-1000, z, 100, 500, "./media/tile5.png", true)
+            left_wall = Wall.new(-1000, z, 100, 500, @image_external_wall, true)
             left_wall.set_visible_side(QUAD_W)
             @engine.add_object(left_wall)
-            right_wall = Wall.new(1000, z, 100, 500, "./media/tile5.png", true)
+            right_wall = Wall.new(1000, z, 100, 500, @image_external_wall, true)
             right_wall.set_visible_side(QUAD_E)
             @engine.add_object(right_wall)
             z = z + 500
@@ -122,62 +106,6 @@ class CubeRenderDisplay < Widget
         add_child(@text_7)
     end 
 
-    def add_to_maps(x, y, val)
-        #puts "Array #{x},#{y} -> #{val}"
-        @world_map[x][y] = val
-        @raycast_map[y][x] = val
-    end 
-
-    def instantiate_elements(grid, engine, dsl)
-        @world_map = Array.new(grid.grid_width) do |x|
-            Array.new(grid.grid_height) do |y|
-                0
-            end 
-        end 
-        @raycast_map = Array.new(grid.grid_height) do |y|
-            Array.new(grid.grid_width) do |x|
-                0
-            end 
-        end 
-        grid.clear_tiles
-        grid_y = 89
-        grid_x = -10
-        dsl.each do |line|
-            index = 0
-            while index < line.size
-                char = line[index..index+1].strip
-                img = nil
-                # set_tile is already using the grid offsets, but here
-                # we are directly creating a world map array so we need
-                # to use the same offsets
-                # So the Grid should probably do this, not here, but oh well
-                array_grid_x = grid_x + grid.grid_x_offset
-                array_grid_y = grid_y + grid.grid_y_offset
-                #if char == "B"
-                #    img = Brick.new(@blue_brick)
-                if char == "5"
-                    # ignore 5 because we manually constructed the wall using bigger chunks
-                    add_to_maps(array_grid_x, array_grid_y, 5)
-                    #img = Wall.new(grid_x * 100, grid_y * 100)
-                elsif char == "18"
-                    add_to_maps(array_grid_x, array_grid_y, 18)
-                    img = Wall.new(grid_x * 100, grid_y * 100, 100, 100, @image_tile_18)
-                end
-                
-                if not img.nil?
-                    puts "Set tile #{grid_x},#{grid_y}  =  #{char}"
-                    grid.set_tile(grid_x, grid_y, img)
-                    engine.add_object(img)
-                end
-
-                grid_x = grid_x + 1
-                index = index + 2
-            end
-            grid_x = -10
-            grid_y = grid_y - 1
-        end
-    end 
-
     def render
         @engine.render
     end
@@ -187,7 +115,7 @@ class CubeRenderDisplay < Widget
         @engine.modify_all_objects do |n|
             n.reset_visible_side
         end
-        @engine.raycast_for_visibility(@grid, @raycast_map, GAME_WIDTH)
+        @engine.raycast_for_visibility(GAME_WIDTH)
 
         @engine.calc_points
         @engine.debug_objects.each do |other_obj| 
@@ -219,7 +147,7 @@ class CubeRenderDisplay < Widget
         "Angle: #{@engine.camera_angle.x.round(2)}, #{@engine.camera_angle.y.round(2)}, #{@engine.camera_angle.z.round(2)}"
     end 
     def dir_text 
-        "Direction: #{@engine.direction_y.round(2)}, #{@engine.direction_x.round(2)}    quad: #{@engine.direction_quadrant}   grid: #{@grid.determine_grid_x(@engine.center.x)}, #{@grid.determine_grid_y(@engine.center.z)}"
+        "Direction: #{@engine.direction_y.round(2)}, #{@engine.direction_x.round(2)}    quad: #{@engine.direction_quadrant}   grid: #{@game_world.grid.determine_grid_x(@engine.center.x)}, #{@game_world.grid.determine_grid_y(@engine.center.z)}"
     end 
     def objects_text 
         "Objects: #{@engine.all_objects.size} "
@@ -232,10 +160,10 @@ class CubeRenderDisplay < Widget
     end
 
     def tile_at_proposed_grid(proposed_x, proposed_y) 
-        tile_x = @grid.determine_grid_x(proposed_x) + @grid.grid_x_offset
-        tile_y = @grid.determine_grid_y(proposed_y) + @grid.grid_y_offset
+        tile_x = @game_world.grid.determine_grid_x(proposed_x) + @game_world.grid.grid_x_offset
+        tile_y = @game_world.grid.determine_grid_y(proposed_y) + @game_world.grid.grid_y_offset
         #puts "tile_x/y:  #{tile_x}, #{tile_y}"
-        @world_map[tile_x][tile_y]
+        @game_world.world_map[tile_x][tile_y]
     end 
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -318,7 +246,7 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbX 
             puts "------------"
             puts "Lets raycast"
-            ray_line = @engine.raycast(640, @grid, @raycast_map, GAME_WIDTH) 
+            ray_line = @engine.raycast(640, GAME_WIDTH) 
             puts ray_line
             slope = ray_line.slope 
             puts slope
