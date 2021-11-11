@@ -14,6 +14,28 @@ def test_line_intersection
     puts "Line #{l1} intersects line #{l2} at #{l1.intersect(l2)}."
 end
 
+def display_quad(qfs)
+    if qfs == QUAD_NW
+        return "QUAD_NW"
+    elsif qfs == QUAD_N
+        return "QUAD_N"
+    elsif qfs == QUAD_NE
+        return "QUAD_NE"
+    elsif qfs == QUAD_SW
+        return "QUAD_SW"
+    elsif qfs == QUAD_S
+        return "QUAD_S"
+    elsif qfs == QUAD_SE
+        return "QUAD_SE"
+    elsif qfs == QUAD_E
+        return "QUAD_E"
+    elsif qfs == QUAD_W
+        return "QUAD_W"
+    end
+end 
+
+
+
         # Axis lines
         #@x_axis = ThreeDLine.new(Point3D.new(-1000, 0, 0), Point3D.new(1000, 0, 0))
         #@y_axis = ThreeDLine.new(Point3D.new(0, -AXIS_END, 0), Point3D.new(0, AXIS_END, 0))

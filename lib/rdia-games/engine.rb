@@ -6,78 +6,148 @@ include Wads
 module RdiaGames
     RDIA_SCALE = 0.001
 
-    def initialize_rdia_games 
-        $cos_cache = {}
-        $sin_cache = {}
+    class Engine
+        attr_accessor :camera
+        attr_accessor :camera_angle
+        attr_accessor :center
+        attr_accessor :direction_x
+        attr_accessor :direction_y
+        attr_accessor :direction_quadrant
 
-        $camera = Point3D.new(0, 0, 0)
-        $camera_angle = Point3D.new(0, 0, 0)
-        $center = Point3D.new(0, 0, 0)
-    end 
+        def initialize(camera = nil, center = nil, direction = nil)
+            @cos_cache = {}
+            @sin_cache = {}
 
-    def rdia_sin(val)
-        cached = $sin_cache[val]
-        if cached.nil?
-            cached = Math.sin(val)
-            $sin_cache[val] = cached 
+            if camera.nil?
+                @camera = Point3D.new(0, 0, 0)
+            else 
+                @camera = camera 
+            end 
+            @camera_angle = Point3D.new(0, 0, 0)
+
+            if center.nil?
+                @center = Point3D.new(0, 0, 0)
+            else 
+                @center = center 
+            end
+            
+            if direction.nil?
+                set_direction(1, 0)
+            else 
+                set_direction(direction.x, direction.y)
+            end
+            @direction_quadrant = QUAD_N
         end 
-        cached
-    end 
 
-    def rdia_cos(val)
-        cached = $cos_cache[val]
-        if cached.nil?
-            cached = Math.cos(val)
-            $cos_cache[val] = cached 
+        def set_center(x, y, z)
+            @center.set(x, y, z)
+        end
+
+        def set_camera(x, y, z)
+            @camera.set(x, y, z)
+        end
+
+        def set_direction(x, y)
+            @direction_x = x     
+            @direction_y = y   
+            determine_directional_quadrant    
         end 
-        cached
-    end
 
-    def calc_point(model_point)
-        # XD = X(N)-PIVX
-        # YD = Y(N)-PIVY
-        # ZD = Z(N)-PIVZ
-        xd = model_point.x - $center.x
-        yd = model_point.y - $center.y
-        zd = model_point.z - $center.z
+        def determine_directional_quadrant
+            angle_y = @camera_angle.y % DEG_360 
+            if angle_y < DEG_22_5
+                @direction_quadrant = QUAD_N
+            elsif angle_y < DEG_67_5 
+                @direction_quadrant = QUAD_NE
+            elsif angle_y < DEG_112_5 
+                @direction_quadrant = QUAD_E
+            elsif angle_y < DEG_157_5 
+                @direction_quadrant = QUAD_SE
+            elsif angle_y < DEG_202_5 
+                @direction_quadrant = QUAD_S
+            elsif angle_y < DEG_247_5 
+                @direction_quadrant = QUAD_SW
+            elsif angle_y < DEG_292_5
+                @direction_quadrant = QUAD_W 
+            elsif angle_y < DEG_337_5 
+                @direction_quadrant = QUAD_NW 
+            else 
+                @direction_quadrant = QUAD_N
+            end
+        end 
+    
+        def perpendicular_direction_clockwise(x, y)
+            [y, -x]
+        end
+    
+        def perpendicular_direction_counter_clockwise(x, y)
+            [-y, x]
+        end
+    
+        def rdia_sin(val)
+            cached = @sin_cache[val]
+            if cached.nil?
+                cached = Math.sin(val)
+                @sin_cache[val] = cached 
+            end 
+            cached
+        end 
 
-        # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
-        # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-        z_cos = rdia_cos($camera_angle.z)
-        z_sin = rdia_sin($camera_angle.z)
-        y_cos = rdia_cos($camera_angle.y)
-        y_sin = rdia_sin($camera_angle.y)
-        x_cos = rdia_cos($camera_angle.x)
-        x_sin = rdia_sin($camera_angle.x)
+        def rdia_cos(val)
+            cached = @cos_cache[val]
+            if cached.nil?
+                cached = Math.cos(val)
+                @cos_cache[val] = cached 
+            end 
+            cached
+        end
 
-        zx = (xd * z_cos) - (yd * z_sin) - xd
-        zy = (xd * z_sin) + (yd * z_cos) - yd
+        def calc_point(model_point)
+            # XD = X(N)-PIVX
+            # YD = Y(N)-PIVY
+            # ZD = Z(N)-PIVZ
+            xd = model_point.x - @center.x
+            yd = model_point.y - @center.y
+            zd = model_point.z - @center.z
 
-        # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
-        # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
-        yx = ((xd + zx) * y_cos) - (zd * y_sin) - (xd + zx)
-        yz = ((xd + zx) * y_sin) + (zd * y_cos) - zd
+            # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
+            # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
+            z_cos = rdia_cos(@camera_angle.z)
+            z_sin = rdia_sin(@camera_angle.z)
+            y_cos = rdia_cos(@camera_angle.y)
+            y_sin = rdia_sin(@camera_angle.y)
+            x_cos = rdia_cos(@camera_angle.x)
+            x_sin = rdia_sin(@camera_angle.x)
 
-        # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
-        # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
-        xy = ((yd + zy) * x_cos) - ((zd + yz) * x_sin) - (yd + zy)
-        xz = ((yd + zy) * x_sin) + ((zd + yz) * x_cos) - (zd + yz)
+            zx = (xd * z_cos) - (yd * z_sin) - xd
+            zy = (xd * z_sin) + (yd * z_cos) - yd
 
-        # XROTOFFSET = YX+ZX
-        # YROTOFFSET = ZY+XY
-        # ZROTOFFSET = XZ+YZ 
-        x_rot_offset = yx + zx
-        y_rot_offset = zy + xy 
-        z_rot_offset = xz + yz
+            # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
+            # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
+            yx = ((xd + zx) * y_cos) - (zd * y_sin) - (xd + zx)
+            yz = ((xd + zx) * y_sin) + (zd * y_cos) - zd
 
-        #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
-        #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
-        #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
-        z = model_point.z + z_rot_offset + $camera.z
-        x = (((model_point.x + x_rot_offset + $camera.x) / z) / RDIA_SCALE)
-        y = (((model_point.y + y_rot_offset + $camera.y) / z) / RDIA_SCALE)
+            # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
+            # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
+            xy = ((yd + zy) * x_cos) - ((zd + yz) * x_sin) - (yd + zy)
+            xz = ((yd + zy) * x_sin) + ((zd + yz) * x_cos) - (zd + yz)
 
-        Point3D.new(x, y, z) 
+            # XROTOFFSET = YX+ZX
+            # YROTOFFSET = ZY+XY
+            # ZROTOFFSET = XZ+YZ 
+            x_rot_offset = yx + zx
+            y_rot_offset = zy + xy 
+            z_rot_offset = xz + yz
+
+            #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
+            #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
+            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
+            z = model_point.z + z_rot_offset + @camera.z
+            x = (((model_point.x + x_rot_offset + @camera.x) / z) / RDIA_SCALE)
+            y = (((model_point.y + y_rot_offset + @camera.y) / z) / RDIA_SCALE)
+
+            Point3D.new(x, y, z) 
+        end
     end
 
 
@@ -317,10 +387,10 @@ module RdiaGames
             Gosu::draw_line point1.x, point1.y, color_to_use, point2.x, point2.y, color_to_use, z_order_to_use
         end
 
-        def calc_points
+        def calc_points(engine)
             @render_points = [] 
             @model_points.each do |model_point|
-                @render_points << calc_point(model_point)
+                @render_points << engine.calc_point(model_point)
             end 
         end 
     end 

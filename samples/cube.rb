@@ -59,12 +59,8 @@ class CubeRenderDisplay < Widget
         @offset_x = 600
         @offset_y = 300
 
-        $center.set(0, 0, -300)
-        $camera.set(0, 150, 800) # The camera z coordinate is inverse
-
-        @dir_x = 1     # initial direction vector
-        @dir_y = 0   
-        determine_directional_quadrant
+        @engine = Engine.new(Point3D.new(0, 150,  800), # camera
+                             Point3D.new(0,   0, -300)) # center
 
         @pause = false
         @speed = 10
@@ -214,7 +210,7 @@ class CubeRenderDisplay < Widget
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
     def calc_points
         modify do |n|
-            n.calc_points
+            n.calc_points(@engine)
         end
 
         # Show the origin (pivot) point as a cube
@@ -224,10 +220,10 @@ class CubeRenderDisplay < Widget
         # Darren Show the directional vector as a cube
         # initial direction vector    @dir_x = -1   @dir_y = 0   
         dir_scale = 100
-        extended_dir_x = @dir_x * dir_scale  
-        extended_dir_y = @dir_y * dir_scale  
-        @dir_cube = Cube.new($center.x + extended_dir_y, $center.z + extended_dir_x, 25, COLOR_PEACH)
-        @dir_cube.calc_points
+        extended_dir_x = @engine.direction_x * dir_scale  
+        extended_dir_y = @engine.direction_y * dir_scale  
+        @dir_cube = Cube.new(@engine.center.x + extended_dir_y, @engine.center.z + extended_dir_x, 25, COLOR_PEACH)
+        @dir_cube.calc_points(@engine)
     end 
 
     def render
@@ -261,7 +257,7 @@ class CubeRenderDisplay < Widget
 
         calc_points
         @other_objects.each do |other_obj| 
-            other_obj.calc_points 
+            other_obj.calc_points(@engine)
         end
 
         @text_1.label = "Mouse: #{mouse_x}, #{mouse_y}"
@@ -280,19 +276,16 @@ class CubeRenderDisplay < Widget
     end
 
     def camera_text 
-        "Camera: #{$camera.x.round(2)}, #{$camera.y.round(2)}, #{$camera.z.round(2)}" 
+        "Camera: #{@engine.camera.x.round(2)}, #{@engine.camera.y.round(2)}, #{@engine.camera.z.round(2)}" 
     end 
     def center_text 
-        "Center: #{$center.x.round}, #{$center.y.round}, #{$center.z.round}" 
-    end 
-    def location_text 
-        "Location: #{@cube.model_points[0].x.round}, #{@cube.model_points[0].y.round}, #{@cube.model_points[0].z.round}"
+        "Center: #{@engine.center.x.round}, #{@engine.center.y.round}, #{@engine.center.z.round}" 
     end 
     def angle_text 
-        "Angle: #{$camera_angle.x.round(2)}, #{$camera_angle.y.round(2)}, #{$camera_angle.z.round(2)}"
+        "Angle: #{@engine.camera_angle.x.round(2)}, #{@engine.camera_angle.y.round(2)}, #{@engine.camera_angle.z.round(2)}"
     end 
     def dir_text 
-        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}   grid: #{@grid.determine_grid_x($center.x)}, #{@grid.determine_grid_y($center.z)}"
+        "Direction: #{@engine.direction_y.round(2)}, #{@engine.direction_x.round(2)}    quad: #{@engine.direction_quadrant}   grid: #{@grid.determine_grid_x(@engine.center.x)}, #{@grid.determine_grid_y(@engine.center.z)}"
     end 
     def objects_text 
         "Objects: #{@all_objects.size} "
@@ -309,37 +302,6 @@ class CubeRenderDisplay < Widget
         tile_y = @grid.determine_grid_y(proposed_y) + @grid.grid_y_offset
         #puts "tile_x/y:  #{tile_x}, #{tile_y}"
         @world_map[tile_x][tile_y]
-    end 
-
-    def determine_directional_quadrant
-        if @all_objects.nil?
-            @dir_quad = QUAD_N
-            return
-        end 
-        if @all_objects.empty? 
-            @dir_quad = QUAD_N 
-            return
-        end
-        angle_y = $camera_angle.y % DEG_360 
-        if angle_y < DEG_22_5
-            @dir_quad = QUAD_N
-        elsif angle_y < DEG_67_5 
-            @dir_quad = QUAD_NE
-        elsif angle_y < DEG_112_5 
-            @dir_quad = QUAD_E
-        elsif angle_y < DEG_157_5 
-            @dir_quad = QUAD_SE
-        elsif angle_y < DEG_202_5 
-            @dir_quad = QUAD_S
-        elsif angle_y < DEG_247_5 
-            @dir_quad = QUAD_SW
-        elsif angle_y < DEG_292_5
-            @dir_quad = QUAD_W 
-        elsif angle_y < DEG_337_5 
-            @dir_quad = QUAD_NW 
-        else 
-            @dir_quad = QUAD_N
-        end
     end 
 
     def handle_key_held_down id, mouse_x, mouse_y
@@ -364,15 +326,15 @@ class CubeRenderDisplay < Widget
             
             #cx = $camera.x
             #cz = -$camera.z
-            cx = $center.x
-            cz = $center.z
+            cx = @engine.center.x
+            cz = @engine.center.z
 
             size_square = 1000
-            dx, dz = perpendicular_direction_counter_clockwise(@dir_y, @dir_x)
+            dx, dz = @engine.perpendicular_direction_counter_clockwise(@engine.direction_y, @engine.direction_x)
             #side_left = Point3D.new(cx + (dx * size_square), 0, cz + (dz * size_square))
             side_left = Point2D.new(cx + (dx * size_square), cz + (dz * size_square))
 
-            dx, dz = perpendicular_direction_clockwise(@dir_y, @dir_x)
+            dx, dz = @engine.perpendicular_direction_clockwise(@engine.direction_y, @engine.direction_x)
             #side_right = Point3D.new(cx + (dx * size_square), 0, cz + (dz * size_square))
             side_right = Point2D.new(cx + (dx * size_square), cz + (dz * size_square))
 
@@ -381,8 +343,8 @@ class CubeRenderDisplay < Widget
             #      line intersection seems non-trivial
             #forward_left = Point3D.new(side_left.x + (@dir_y * size_square), 0, side_left.z + (@dir_x * size_square))
             #forward_right = Point3D.new(side_right.x + (@dir_y * size_square), 0, side_right.z + (@dir_x * size_square))
-            forward_left = Point2D.new(side_left.x + (@dir_y * size_square), side_left.y + (@dir_x * size_square))
-            forward_right = Point2D.new(side_right.x + (@dir_y * size_square), side_right.y + (@dir_x * size_square))
+            forward_left = Point2D.new(side_left.x + (@engine.direction_y * size_square), side_left.y + (@engine.direction_x * size_square))
+            forward_right = Point2D.new(side_right.x + (@engine.direction_y * size_square), side_right.y + (@engine.direction_x * size_square))
             
             puts "Find intersecting lines with worlds edge"
             bottom_line = Line2D.new(side_left, side_right)
@@ -446,34 +408,6 @@ class CubeRenderDisplay < Widget
         # TODO put the code back here
     end 
 
-    def perpendicular_direction_clockwise(x, y)
-        [y, -x]
-    end
-
-    def perpendicular_direction_counter_clockwise(x, y)
-        [-y, x]
-    end
-
-    def display_quad(qfs)
-        if qfs == QUAD_NW
-            return "QUAD_NW"
-        elsif qfs == QUAD_N
-            return "QUAD_N"
-        elsif qfs == QUAD_NE
-            return "QUAD_NE"
-        elsif qfs == QUAD_SW
-            return "QUAD_SW"
-        elsif qfs == QUAD_S
-            return "QUAD_S"
-        elsif qfs == QUAD_SE
-            return "QUAD_SE"
-        elsif qfs == QUAD_E
-            return "QUAD_E"
-        elsif qfs == QUAD_W
-            return "QUAD_W"
-        end
-    end 
-
     def raycast_for_visibility
         (0..1279).each do |x|
             ray_data = raycast(x) 
@@ -491,11 +425,11 @@ class CubeRenderDisplay < Widget
     def raycast(x, plane_x = 0, plane_y = 0.66) 
         #tile_x = @grid.determine_grid_x($camera.x)   # If you really see what is visible, use the camera
         #tile_y = @grid.determine_grid_y($camera.z)
-        tile_x = @grid.determine_grid_x($center.x)
-        tile_y = @grid.determine_grid_y($center.z)
+        tile_x = @grid.determine_grid_x(@engine.center.x)
+        tile_y = @grid.determine_grid_y(@engine.center.z)
         adj_tile_x = tile_x + @grid.grid_x_offset
         adj_tile_y = tile_y + @grid.grid_y_offset
-        drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
+        drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @engine.direction_x, @engine.direction_y, plane_x, plane_y)
         adj_map_x = mapX - @grid.grid_y_offset   # The raycast map is set the other way
         adj_map_y = mapY - @grid.grid_x_offset
         adj_orig_map_x = orig_map_x - @grid.grid_y_offset
@@ -520,53 +454,53 @@ class CubeRenderDisplay < Widget
     def handle_movement id, mouse_x, mouse_y 
         if id == Gosu::KbQ
             # Lateral movement
-            $camera.x = $camera.x + @speed
-            $center.x = $center.x - @speed
+            @engine.camera.x = @engine.camera.x + @speed
+            @engine.center.x = @engine.center.x - @speed
         elsif id == Gosu::KbE
             # Lateral movement
-            $camera.x = $camera.x - @speed
-            $center.x = $center.x + @speed
+            @engine.camera.x = @engine.camera.x - @speed
+            @engine.center.x = @engine.center.x + @speed
         elsif id == Gosu::KbW
             # Primary movement keys (WASD)
-            movement_x = @dir_y * @speed
-            movement_z = @dir_x * @speed
+            movement_x = @engine.direction_y * @speed
+            movement_z = @engine.direction_x * @speed
 
-            proposed_x = $center.x + movement_x
-            proposed_z = $center.z + movement_z
+            proposed_x = @engine.center.x + movement_x
+            proposed_z = @engine.center.z + movement_z
             proposed = tile_at_proposed_grid(proposed_x, proposed_z)
             if proposed == 0 
-                $camera.x = $camera.x - movement_x
-                $center.x = proposed_x
+                @engine.camera.x = @engine.camera.x - movement_x
+                @engine.center.x = proposed_x
 
-                $camera.z = $camera.z - movement_z
-                $center.z = proposed_z
+                @engine.camera.z = @engine.camera.z - movement_z
+                @engine.center.z = proposed_z
             end
 
         elsif id == Gosu::KbS
-            movement_x = @dir_y * @speed
-            movement_z = @dir_x * @speed
+            movement_x = @engine.direction_y * @speed
+            movement_z = @engine.direction_x * @speed
 
-            proposed_x = $center.x - movement_x
-            proposed_z = $center.z - movement_z
+            proposed_x = @engine.center.x - movement_x
+            proposed_z = @engine.center.z - movement_z
             proposed = tile_at_proposed_grid(proposed_x, proposed_z)
             if proposed == 0 
-                $camera.x = $camera.x + movement_x
-                $center.x = proposed_x
+                @engine.camera.x = @engine.camera.x + movement_x
+                @engine.center.x = proposed_x
 
-                $camera.z = $camera.z + movement_z
-                $center.z = proposed_z
+                @engine.camera.z = @engine.camera.z + movement_z
+                @engine.center.z = proposed_z
             end
 
         elsif id == Gosu::KbD
-            $camera_angle.y = $camera_angle.y + 0.05
-            @dir_x = Math.cos($camera_angle.y)
-            @dir_y = Math.sin($camera_angle.y)
-            determine_directional_quadrant
+            @engine.camera_angle.y = @engine.camera_angle.y + 0.05
+            @engine.direction_x = Math.cos(@engine.camera_angle.y)
+            @engine.direction_y = Math.sin(@engine.camera_angle.y)
+            @engine.determine_directional_quadrant
         elsif id == Gosu::KbA
-            $camera_angle.y = $camera_angle.y - 0.05
-            @dir_x = Math.cos($camera_angle.y)
-            @dir_y = Math.sin($camera_angle.y)
-            determine_directional_quadrant
+            @engine.camera_angle.y = @engine.camera_angle.y - 0.05
+            @engine.direction_x = Math.cos(@engine.camera_angle.y)
+            @engine.direction_y = Math.sin(@engine.camera_angle.y)
+            @engine.determine_directional_quadrant
         end
     end
 
@@ -583,5 +517,4 @@ class CubeRenderDisplay < Widget
     end
 end
 
-initialize_rdia_games 
 CubeRender.new.show
