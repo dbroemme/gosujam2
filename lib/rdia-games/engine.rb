@@ -31,6 +31,54 @@ module RdiaGames
         cached
     end
 
+    def calc_point(model_point, angle_x = 0, angle_y = 0, angle_z = 0)
+        # XD = X(N)-PIVX
+        # YD = Y(N)-PIVY
+        # ZD = Z(N)-PIVZ
+        xd = model_point.x - $center.x
+        yd = model_point.y - $center.y
+        zd = model_point.z - $center.z
+
+        # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
+        # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
+        z_cos = rdia_cos(angle_z)
+        z_sin = rdia_sin(angle_z)
+        y_cos = rdia_cos(angle_y)
+        y_sin = rdia_sin(angle_y)
+        x_cos = rdia_cos(angle_x)
+        x_sin = rdia_sin(angle_x)
+
+        zx = (xd * z_cos) - (yd * z_sin) - xd
+        zy = (xd * z_sin) + (yd * z_cos) - yd
+
+        # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
+        # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
+        yx = ((xd + zx) * y_cos) - (zd * y_sin) - (xd + zx)
+        yz = ((xd + zx) * y_sin) + (zd * y_cos) - zd
+
+        # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
+        # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
+        xy = ((yd + zy) * x_cos) - ((zd + yz) * x_sin) - (yd + zy)
+        xz = ((yd + zy) * x_sin) + ((zd + yz) * x_cos) - (zd + yz)
+
+        # XROTOFFSET = YX+ZX
+        # YROTOFFSET = ZY+XY
+        # ZROTOFFSET = XZ+YZ 
+        x_rot_offset = yx + zx
+        y_rot_offset = zy + xy 
+        z_rot_offset = xz + yz
+
+        #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
+        #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
+        #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
+        z = model_point.z + z_rot_offset + $camera.z
+        x = (((model_point.x + x_rot_offset + $camera.x) / z) / RDIA_SCALE)
+        y = (((model_point.y + y_rot_offset + $camera.y) / z) / RDIA_SCALE)
+
+        Point3D.new(x, y, z) 
+    end
+
+
     class Point2D
         attr_accessor :x
         attr_accessor :y
@@ -279,53 +327,6 @@ module RdiaGames
                 @render_points << calc_point(model_point, @angle_x, @angle_y, @angle_z)
             end 
         end 
-
-        def calc_point(model_point, angle_x = 0, angle_y = 0, angle_z = 0)
-            # XD = X(N)-PIVX
-            # YD = Y(N)-PIVY
-            # ZD = Z(N)-PIVZ
-            xd = model_point.x - $center.x
-            yd = model_point.y - $center.y
-            zd = model_point.z - $center.z
-
-            # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
-            # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-            z_cos = rdia_cos(angle_z)
-            z_sin = rdia_sin(angle_z)
-            y_cos = rdia_cos(angle_y)
-            y_sin = rdia_sin(angle_y)
-            x_cos = rdia_cos(angle_x)
-            x_sin = rdia_sin(angle_x)
-
-            zx = (xd * z_cos) - (yd * z_sin) - xd
-            zy = (xd * z_sin) + (yd * z_cos) - yd
-
-            # YX = [XD+ZX]*Cos{ANGLEY} - ZD*Sin{ANGLEY} - [XD+ZX]
-            # YZ = [XD+ZX]*Sin{ANGLEY} + ZD*Cos{ANGLEY} - ZD
-            yx = ((xd + zx) * y_cos) - (zd * y_sin) - (xd + zx)
-            yz = ((xd + zx) * y_sin) + (zd * y_cos) - zd
-
-            # XY = [YD+ZY]*Cos{ANGLEX} - [ZD+YZ]*Sin{ANGLEX} - [YD+ZY]
-            # XZ = [YD+ZY]*Sin{ANGLEX} + [ZD+YZ]*Cos{ANGLEX} - [ZD+YZ]
-            xy = ((yd + zy) * x_cos) - ((zd + yz) * x_sin) - (yd + zy)
-            xz = ((yd + zy) * x_sin) + ((zd + yz) * x_cos) - (zd + yz)
-
-            # XROTOFFSET = YX+ZX
-            # YROTOFFSET = ZY+XY
-            # ZROTOFFSET = XZ+YZ 
-            x_rot_offset = yx + zx
-            y_rot_offset = zy + xy 
-            z_rot_offset = xz + yz
-
-            #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
-            #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
-            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
-            z = model_point.z + z_rot_offset + $camera.z
-            x = (((model_point.x + x_rot_offset + $camera.x) / z) / RDIA_SCALE)
-            y = (((model_point.y + y_rot_offset + $camera.y) / z) / RDIA_SCALE)
-
-            Point3D.new(x, y, z) 
-        end
     end 
 
     class Line3D < Object3D
