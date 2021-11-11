@@ -68,11 +68,10 @@ class CubeRenderDisplay < Widget
 
         # Our objects
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
-        @all_objects = [@cube]
-        @other_objects = []
+        @engine.add_object(@cube)
 
         @grid = GridDisplay.new(0, 0, 100, 21, 95, {ARG_X_OFFSET => 10, ARG_Y_OFFSET => 5})
-        instantiate_elements(@grid, @all_objects, File.readlines("./data/editor_board.txt")) 
+        instantiate_elements(@grid, @engine, File.readlines("./data/editor_board.txt")) 
         puts "World Map"
         puts "---------"
         (0..94).each do |y|
@@ -100,10 +99,10 @@ class CubeRenderDisplay < Widget
         while x < 550
             far_wall = Wall.new(x, 8900, 500, 100, @image_external_wall, true)
             far_wall.set_visible_side(QUAD_S)
-            @all_objects << far_wall
+            @engine.add_object(far_wall)
             wall_behind_us = Wall.new(x, -500, 500, 100, @image_external_wall, true)
             wall_behind_us.set_visible_side(QUAD_N)
-            @all_objects << wall_behind_us
+            @engine.add_object(wall_behind_us)
             x = x + 500
         end
 
@@ -112,10 +111,10 @@ class CubeRenderDisplay < Widget
         while z < 8910
             left_wall = Wall.new(-1000, z, 100, 500, "./media/tile5.png", true)
             left_wall.set_visible_side(QUAD_W)
-            @all_objects << left_wall
+            @engine.add_object(left_wall)
             right_wall = Wall.new(1000, z, 100, 500, "./media/tile5.png", true)
             right_wall.set_visible_side(QUAD_E)
-            @all_objects << right_wall
+            @engine.add_object(right_wall)
             z = z + 500
         end
 
@@ -123,7 +122,7 @@ class CubeRenderDisplay < Widget
         while x < 950
             z = -500
             while z < 8890
-                @all_objects << FloorTile.new(x, z, 200)
+                @engine.add_object(FloorTile.new(x, z, 200))
                 z = z + 200
             end 
             x = x + 200
@@ -151,7 +150,7 @@ class CubeRenderDisplay < Widget
         @raycast_map[y][x] = val
     end 
 
-    def instantiate_elements(grid, all_objects, dsl)
+    def instantiate_elements(grid, engine, dsl)
         @world_map = Array.new(grid.grid_width) do |x|
             Array.new(grid.grid_height) do |y|
                 0
@@ -190,7 +189,7 @@ class CubeRenderDisplay < Widget
                 if not img.nil?
                     puts "Set tile #{grid_x},#{grid_y}  =  #{char}"
                     grid.set_tile(grid_x, grid_y, img)
-                    all_objects << img
+                    engine.add_object(img)
                 end
 
                 grid_x = grid_x + 1
@@ -201,15 +200,9 @@ class CubeRenderDisplay < Widget
         end
     end 
 
-    def modify(&block)
-        @all_objects.each do |obj|
-            yield obj
-        end
-    end
-
     # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
     def calc_points
-        modify do |n|
+        @engine.modify_all_objects do |n|
             n.calc_points(@engine)
         end
 
@@ -231,32 +224,20 @@ class CubeRenderDisplay < Widget
             #@center_cube.render
             #@dir_cube.render
 
-            modify do |n|
-                if n.is_behind_us 
-                    # do not draw 
-                    #puts "Not drawing #{n.class.name}"
-                else
-                    n.render
-                end
-            end
-
-            # Other objects are essentially debug objects
-            # we draw on top of everything else
-            @other_objects.each do |oo|
-                oo.render(20)
-            end
+            @engine.render_all_objects
+            @engine.render_debug_objects
         end 
     end
 
     def handle_update update_count, mouse_x, mouse_y
         return if @pause
-        modify do |n|
+        @engine.modify_all_objects do |n|
             n.reset_visible_side
         end
         raycast_for_visibility
 
         calc_points
-        @other_objects.each do |other_obj| 
+        @engine.debug_objects.each do |other_obj| 
             other_obj.calc_points(@engine)
         end
 
@@ -265,11 +246,11 @@ class CubeRenderDisplay < Widget
         @text_3.label = angle_text
         @text_4.label = dir_text
         number_of_invisible_objects = 0
-        @all_objects.each do |obj| 
-            if not obj.visible
-                number_of_invisible_objects = number_of_invisible_objects + 1
-            end 
-        end
+        #@all_objects.each do |obj| 
+        #    if not obj.visible
+        #        number_of_invisible_objects = number_of_invisible_objects + 1
+        #    end 
+        #end
         @text_5.label = "#{objects_text}/#{number_of_invisible_objects}"
         @text_6.label = center_text
         @text_7.label = cube_text
@@ -288,7 +269,7 @@ class CubeRenderDisplay < Widget
         "Direction: #{@engine.direction_y.round(2)}, #{@engine.direction_x.round(2)}    quad: #{@engine.direction_quadrant}   grid: #{@grid.determine_grid_x(@engine.center.x)}, #{@grid.determine_grid_y(@engine.center.z)}"
     end 
     def objects_text 
-        "Objects: #{@all_objects.size} "
+        "Objects: #{@engine.all_objects.size} "
     end
     def cube_text 
         #if @dir_cube
@@ -357,7 +338,7 @@ class CubeRenderDisplay < Widget
             puts "The visibility polygon is #{vb}"
 
             pip = PointInsidePolygon.new
-            @all_objects.each do |an_obj|
+            @engine.all_objects.each do |an_obj|
                 if an_obj.is_external or an_obj.is_a? FloorTile 
                     # skip 
                 else 
@@ -370,16 +351,15 @@ class CubeRenderDisplay < Widget
                     else
                         puts "Setting #{an_obj} to invisible"
                         an_obj.color = COLOR_LIME
-                        #@all_objects.delete(an_obj)
                     end
                 end 
             end 
 
-            @other_objects = []
-            @other_objects << Line3D.new(Point3D.new(vb[0].x, 0, vb[0].y), Point3D.new(vb[1].x, 0, vb[1].y), COLOR_RED)
-            @other_objects << Line3D.new(Point3D.new(vb[1].x, 0, vb[1].y), Point3D.new(vb[2].x, 0, vb[2].y), COLOR_RED)
-            @other_objects << Line3D.new(Point3D.new(vb[2].x, 0, vb[2].y), Point3D.new(vb[3].x, 0, vb[3].y), COLOR_RED)
-            @other_objects << Line3D.new(Point3D.new(vb[3].x, 0, vb[3].y), Point3D.new(vb[0].x, 0, vb[0].y), COLOR_RED)
+            @engine.debug_objects = []
+            @engine.add_debug_object Line3D.new(Point3D.new(vb[0].x, 0, vb[0].y), Point3D.new(vb[1].x, 0, vb[1].y), COLOR_RED)
+            @engine.add_debug_object Line3D.new(Point3D.new(vb[1].x, 0, vb[1].y), Point3D.new(vb[2].x, 0, vb[2].y), COLOR_RED)
+            @engine.add_debug_object Line3D.new(Point3D.new(vb[2].x, 0, vb[2].y), Point3D.new(vb[3].x, 0, vb[3].y), COLOR_RED)
+            @engine.add_debug_object Line3D.new(Point3D.new(vb[3].x, 0, vb[3].y), Point3D.new(vb[0].x, 0, vb[0].y), COLOR_RED)
         
         
         
@@ -387,7 +367,7 @@ class CubeRenderDisplay < Widget
         
         
         elsif id == Gosu::KbR
-            modify do |n|
+            @engine.modify_all_objects do |n|
                 if n.is_external 
                     # do nothing
                 elsif n.is_a? Cube 

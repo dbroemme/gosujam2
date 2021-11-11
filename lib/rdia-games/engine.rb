@@ -13,8 +13,12 @@ module RdiaGames
         attr_accessor :direction_x
         attr_accessor :direction_y
         attr_accessor :direction_quadrant
+        attr_accessor :all_objects
+        attr_accessor :debug_objects
 
         def initialize(camera = nil, center = nil, direction = nil)
+            @all_objects = []
+            @debug_objects = []
             @cos_cache = {}
             @sin_cache = {}
 
@@ -82,6 +86,37 @@ module RdiaGames
     
         def perpendicular_direction_counter_clockwise(x, y)
             [-y, x]
+        end
+
+        def add_object(obj)
+            @all_objects << obj 
+        end
+
+        def modify_all_objects(&block)
+            @all_objects.each do |obj|
+                yield obj
+            end
+        end
+
+        def add_debug_object(obj)
+            @debug_objects << obj 
+        end
+
+        def render_all_objects
+            modify_all_objects do |n|
+                if n.is_behind_us 
+                    # do not draw 
+                    #puts "Not drawing #{n.class.name}"
+                else
+                    n.render
+                end
+            end
+        end
+
+        def render_debug_objects
+            @debug_objects.each do |oo|
+                oo.render(20)
+            end
         end
     
         def rdia_sin(val)
