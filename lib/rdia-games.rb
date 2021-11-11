@@ -2,4 +2,5 @@
 
 require_relative "rdia-games/version"
 require_relative "rdia-games/widgets"
+require_relative "rdia-games/engine"
 require_relative "rdia-games/app"
