@@ -6,9 +6,11 @@ include Wads
 module RdiaGames
     RDIA_SCALE = 0.001
 
-    def initialize_sin_cos_cache 
+    def initialize_rdia_games 
         $cos_cache = {}
         $sin_cache = {}
+        $camera = Point3D.new(0, 0, 0)
+        $center = Point3D.new(0, 0, 0)
     end 
 
     def rdia_sin(val)
@@ -36,6 +38,10 @@ module RdiaGames
             @x = x 
             @y = y 
         end
+        def set(x, y) 
+            @x = x 
+            @y = y 
+        end
         def to_s 
             "Point #{x}, #{y}"
         end
@@ -50,6 +56,11 @@ module RdiaGames
             @x = x 
             @y = y 
             @z = z
+        end
+        def set(x, y, z) 
+            @x = x 
+            @y = y 
+            @z = z 
         end
         def to_s 
             "#{@x.round},#{@y.round},#{@z.round}"
@@ -273,12 +284,9 @@ module RdiaGames
             # XD = X(N)-PIVX
             # YD = Y(N)-PIVY
             # ZD = Z(N)-PIVZ
-            xd = model_point.x - $center_x
-            yd = model_point.y - $center_y
-            zd = model_point.z - $center_z
-            #if self.is_a? Cube 
-            #    puts "#{xd}, #{yd}, #{zd}"
-            #end
+            xd = model_point.x - $center.x
+            yd = model_point.y - $center.y
+            zd = model_point.z - $center.z
 
             # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
             # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
@@ -309,24 +317,12 @@ module RdiaGames
             y_rot_offset = zy + xy 
             z_rot_offset = xz + yz
 
-            #If MODE=0
-            #    X = [ X(N) + XROTOFFSET + CAMX ] /SCALE +MOVEX
-            #    Y = [ Y(N) + YROTOFFSET + CAMY ] /SCALE +MOVEY
-            #Else
             #    Z = [ Z(N) + ZROTOFFSET + CAMZ ]
             #    X = [ X(N) + XROTOFFSET + CAMX ] /Z /SCALE +MOVEX
             #    Y = [ Y(N) + YROTOFFSET + CAMY ] /Z /SCALE +MOVEY
-            #End If
-
-            #if @mode == MODE_ISOMETRIC
-            #    x = ((model_point.x + x_rot_offset + $camera_x) / scale) + move_x 
-            #    y = ((model_point.y + y_rot_offset + $camera_y) / scale) + move_y
-            #    z = model_point.z
-            #else 
-                z = model_point.z + z_rot_offset + $camera_z
-                x = (((model_point.x + x_rot_offset + $camera_x) / z) / RDIA_SCALE)
-                y = (((model_point.y + y_rot_offset + $camera_y) / z) / RDIA_SCALE)
-            #end 
+            z = model_point.z + z_rot_offset + $camera.z
+            x = (((model_point.x + x_rot_offset + $camera.x) / z) / RDIA_SCALE)
+            y = (((model_point.y + y_rot_offset + $camera.y) / z) / RDIA_SCALE)
 
             Point3D.new(x, y, z) 
         end

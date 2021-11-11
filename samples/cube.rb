@@ -14,10 +14,6 @@ WORLD_Z_END = 9000
 GAME_WIDTH = 1280
 GAME_HEIGHT = 720
 
-MODE_ISOMETRIC = "iso"
-MODE_REAL_THREE_D = "real3d"
-
-
 
 class CubeRender < RdiaGame
     def initialize
@@ -63,12 +59,8 @@ class CubeRenderDisplay < Widget
         @offset_x = 600
         @offset_y = 300
 
-        $center_x = 0
-        $center_y = 0
-        $center_z = -300   # orig -300
-        $camera_x = 0
-        $camera_y = 150
-        $camera_z = 800   # orig 800
+        $center.set(0, 0, -300)
+        $camera.set(0, 150, 800) # The camera z coordinate is inverse
 
         @dir_x = 1     # initial direction vector
         @dir_y = 0   
@@ -76,9 +68,7 @@ class CubeRenderDisplay < Widget
 
         @pause = false
         @speed = 10
-        @mode = MODE_ISOMETRIC
         @continuous_movement = true
-
 
         # Our objects
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
@@ -228,7 +218,7 @@ class CubeRenderDisplay < Widget
         end
 
         # Show the origin (pivot) point as a cube
-        #@center_cube = Cube.new($center_x, $center_z, 25, COLOR_LIGHT_BLUE)
+        #@center_cube = Cube.new($center.x, $center.z, 25, COLOR_LIGHT_BLUE)
         #@center_cube.angle_y = @all_objects[0].angle_y
         #@center_cube.calc_points
 
@@ -237,7 +227,7 @@ class CubeRenderDisplay < Widget
         dir_scale = 100
         extended_dir_x = @dir_x * dir_scale  
         extended_dir_y = @dir_y * dir_scale  
-        @dir_cube = Cube.new($center_x + extended_dir_y, $center_z + extended_dir_x, 25, COLOR_PEACH)
+        @dir_cube = Cube.new($center.x + extended_dir_y, $center.z + extended_dir_x, 25, COLOR_PEACH)
         @dir_cube.angle_y = @all_objects[0].angle_y
         @dir_cube.calc_points
     end 
@@ -292,10 +282,10 @@ class CubeRenderDisplay < Widget
     end
 
     def camera_text 
-        "Camera: #{$camera_x.round(2)}, #{$camera_y.round(2)}, #{$camera_z.round(2)}" 
+        "Camera: #{$camera.x.round(2)}, #{$camera.y.round(2)}, #{$camera.z.round(2)}" 
     end 
     def center_text 
-        "Center: #{$center_x.round}, #{$center_y.round}, #{$center_z.round}" 
+        "Center: #{$center.x.round}, #{$center.y.round}, #{$center.z.round}" 
     end 
     def location_text 
         "Location: #{@cube.model_points[0].x.round}, #{@cube.model_points[0].y.round}, #{@cube.model_points[0].z.round}"
@@ -304,7 +294,7 @@ class CubeRenderDisplay < Widget
         "Angle: #{@cube.angle_x.round(2)}, #{@cube.angle_y.round(2)}, #{@cube.angle_z.round(2)}"
     end 
     def dir_text 
-        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}   grid: #{@grid.determine_grid_x($center_x)}, #{@grid.determine_grid_y($center_z)}"
+        "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}   grid: #{@grid.determine_grid_x($center.x)}, #{@grid.determine_grid_y($center.z)}"
     end 
     def objects_text 
         "Objects: #{@all_objects.size} "
@@ -375,10 +365,10 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbC
             puts "------------"
             
-            #cx = $camera_x
-            #cz = -$camera_z
-            cx = $center_x
-            cz = $center_z
+            #cx = $camera.x
+            #cz = -$camera.z
+            cx = $center.x
+            cz = $center.z
 
             size_square = 1000
             dx, dz = perpendicular_direction_counter_clockwise(@dir_y, @dir_x)
@@ -502,10 +492,10 @@ class CubeRenderDisplay < Widget
     end
 
     def raycast(x, plane_x = 0, plane_y = 0.66) 
-        #tile_x = @grid.determine_grid_x($camera_x)   # If you really see what is visible, use the camera
-        #tile_y = @grid.determine_grid_y($camera_z)
-        tile_x = @grid.determine_grid_x($center_x)
-        tile_y = @grid.determine_grid_y($center_z)
+        #tile_x = @grid.determine_grid_x($camera.x)   # If you really see what is visible, use the camera
+        #tile_y = @grid.determine_grid_y($camera.z)
+        tile_x = @grid.determine_grid_x($center.x)
+        tile_y = @grid.determine_grid_y($center.z)
         adj_tile_x = tile_x + @grid.grid_x_offset
         adj_tile_y = tile_y + @grid.grid_y_offset
         drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @dir_x, @dir_y, plane_x, plane_y)
@@ -533,41 +523,41 @@ class CubeRenderDisplay < Widget
     def handle_movement id, mouse_x, mouse_y 
         if id == Gosu::KbQ
             # Lateral movement
-            $camera_x = $camera_x + @speed
-            $center_x = $center_x - @speed
+            $camera.x = $camera.x + @speed
+            $center.x = $center.x - @speed
         elsif id == Gosu::KbE
             # Lateral movement
-            $camera_x = $camera_x - @speed
-            $center_x = $center_x + @speed
+            $camera.x = $camera.x - @speed
+            $center.x = $center.x + @speed
         elsif id == Gosu::KbW
             # Primary movement keys (WASD)
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
-            proposed_x = $center_x + movement_x
-            proposed_z = $center_z + movement_z
+            proposed_x = $center.x + movement_x
+            proposed_z = $center.z + movement_z
             proposed = tile_at_proposed_grid(proposed_x, proposed_z)
             if proposed == 0 
-                $camera_x = $camera_x - movement_x
-                $center_x = proposed_x
+                $camera.x = $camera.x - movement_x
+                $center.x = proposed_x
 
-                $camera_z = $camera_z - movement_z
-                $center_z = proposed_z
+                $camera.z = $camera.z - movement_z
+                $center.z = proposed_z
             end
 
         elsif id == Gosu::KbS
             movement_x = @dir_y * @speed
             movement_z = @dir_x * @speed
 
-            proposed_x = $center_x - movement_x
-            proposed_z = $center_z - movement_z
+            proposed_x = $center.x - movement_x
+            proposed_z = $center.z - movement_z
             proposed = tile_at_proposed_grid(proposed_x, proposed_z)
             if proposed == 0 
-                $camera_x = $camera_x + movement_x
-                $center_x = proposed_x
+                $camera.x = $camera.x + movement_x
+                $center.x = proposed_x
 
-                $camera_z = $camera_z + movement_z
-                $center_z = proposed_z
+                $camera.z = $camera.z + movement_z
+                $center.z = proposed_z
             end
 
         elsif id == Gosu::KbD
@@ -605,4 +595,5 @@ class CubeRenderDisplay < Widget
     end
 end
 
+initialize_rdia_games 
 CubeRender.new.show
