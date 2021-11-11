@@ -63,10 +63,6 @@ class CubeRenderDisplay < Widget
         @offset_x = 600
         @offset_y = 300
 
-        $stats = Stats.new("Perf")
-        $cos_cache = {}
-        $sin_cache = {}
-
         $center_x = 0
         $center_y = 0
         $center_z = -300   # orig -300
@@ -369,14 +365,6 @@ class CubeRenderDisplay < Widget
         handle_movement(id, mouse_x, mouse_y)
         if id == Gosu::KbSpace 
             @continuous_movement = !@continuous_movement
-        elsif id == Gosu::KbP
-            @cube.clear_points 
-            @cube.reset
-            modify do |n|
-                n.angle_x = 0
-                n.angle_y = 0
-                n.angle_z = 0
-            end
         elsif id == Gosu::KbUp
             @speed = @speed + 5
         elsif id == Gosu::KbDown

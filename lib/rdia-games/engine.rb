@@ -6,6 +6,29 @@ include Wads
 module RdiaGames
     RDIA_SCALE = 0.001
 
+    def initialize_sin_cos_cache 
+        $cos_cache = {}
+        $sin_cache = {}
+    end 
+
+    def rdia_sin(val)
+        cached = $sin_cache[val]
+        if cached.nil?
+            cached = Math.sin(val)
+            $sin_cache[val] = cached 
+        end 
+        cached
+    end 
+
+    def rdia_cos(val)
+        cached = $cos_cache[val]
+        if cached.nil?
+            cached = Math.cos(val)
+            $cos_cache[val] = cached 
+        end 
+        cached
+    end
+
     class Point2D
         attr_accessor :x
         attr_accessor :y
@@ -67,7 +90,8 @@ module RdiaGames
         attr_accessor :render_z_order
 
         def initialize(color = COLOR_AQUA)
-            clear_points 
+            @model_points = []
+            @render_points = []
             reset_angle
             @color = color
             @visible = true
@@ -138,11 +162,6 @@ module RdiaGames
         end 
         def h
             @render_points[7]
-        end
-
-        def clear_points 
-            @model_points = []
-            @render_points = []
         end
 
         def reset_angle
@@ -228,26 +247,6 @@ module RdiaGames
                 @render_points << calc_point(model_point, @angle_x, @angle_y, @angle_z)
             end 
         end 
-
-        def rdia_sin(val)
-            #$stats.increment("sin_#{val}")
-            cached = $sin_cache[val]
-            if cached.nil?
-                cached = Math.sin(val)
-                $sin_cache[val] = cached 
-            end 
-            cached
-        end 
-
-        def rdia_cos(val)
-            #$stats.increment("cos_#{val}")
-            cached = $cos_cache[val]
-            if cached.nil?
-                cached = Math.cos(val)
-                $cos_cache[val] = cached 
-            end 
-            cached
-        end
 
         def calc_point(model_point, angle_x = 0, angle_y = 0, angle_z = 0)
             # XD = X(N)-PIVX

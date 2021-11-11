@@ -29,6 +29,7 @@ module RdiaGames
     class RdiaGame < WadsApp
         def initialize(width, height, caption, widget)
             super
+            initialize_sin_cos_cache 
         end 
     end 
 end
