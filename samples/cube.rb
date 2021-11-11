@@ -351,13 +351,11 @@ class CubeRenderDisplay < Widget
 
     def handle_movement id, mouse_x, mouse_y 
         if id == Gosu::KbQ
-            # Lateral movement
-            @engine.camera.x = @engine.camera.x + @speed
-            @engine.center.x = @engine.center.x - @speed
+            # move sideways left
+            @engine.strafe(-@speed)
         elsif id == Gosu::KbE
-            # Lateral movement
-            @engine.camera.x = @engine.camera.x - @speed
-            @engine.center.x = @engine.center.x + @speed
+            # move sideways right
+            @engine.strafe(@speed)
         elsif id == Gosu::KbW
             # Primary movement keys (WASD)
             movement_x = @engine.direction_y * @speed
@@ -390,15 +388,9 @@ class CubeRenderDisplay < Widget
             end
 
         elsif id == Gosu::KbD
-            @engine.camera_angle.y = @engine.camera_angle.y + 0.05
-            @engine.direction_x = Math.cos(@engine.camera_angle.y)
-            @engine.direction_y = Math.sin(@engine.camera_angle.y)
-            @engine.determine_directional_quadrant
+            @engine.pan_camera(0.05)   # TODO use gradual acceleration
         elsif id == Gosu::KbA
-            @engine.camera_angle.y = @engine.camera_angle.y - 0.05
-            @engine.direction_x = Math.cos(@engine.camera_angle.y)
-            @engine.direction_y = Math.sin(@engine.camera_angle.y)
-            @engine.determine_directional_quadrant
+            @engine.pan_camera(-0.05)  # TODO use gradual acceleration
         end
     end
 

@@ -48,6 +48,18 @@ module RdiaGames
             @direction_quadrant = QUAD_N
         end 
 
+        def pan_camera(rate)
+            @camera_angle.y = @camera_angle.y + rate
+            @direction_x = Math.cos(@camera_angle.y)
+            @direction_y = Math.sin(@camera_angle.y)
+            determine_directional_quadrant
+        end
+
+        def strafe(rate)
+            @camera.x = @camera.x - rate   # camera is inverse to direction
+            @center.x = @center.x + rate
+        end 
+
         def set_center(x, y, z)
             @center.set(x, y, z)
         end
