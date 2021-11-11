@@ -92,7 +92,9 @@ module RdiaGames
         def initialize(color = COLOR_AQUA)
             @model_points = []
             @render_points = []
-            reset_angle
+            @angle_x = 0
+            @angle_y = 0
+            @angle_z = 0
             @color = color
             @visible = true
             @draw_as_image = true
@@ -139,35 +141,54 @@ module RdiaGames
             false
         end
 
-        def a
+        def ra
             @render_points[0]
         end 
-        def b
+        def rb
             @render_points[1]
         end 
-        def c
+        def rc
             @render_points[2]
         end 
-        def d 
+        def rd 
             @render_points[3]
         end 
-        def e
+        def re
             @render_points[4]
         end 
-        def f
+        def rf
             @render_points[5]
         end 
-        def g
+        def rg
             @render_points[6]
         end 
-        def h
+        def rh
             @render_points[7]
         end
 
-        def reset_angle
-            @angle_x = 0
-            @angle_y = 0
-            @angle_z = 0
+        def ma 
+            @model_points[0]
+        end
+        def mb
+            @model_points[1]
+        end
+        def mc
+            @model_points[2]
+        end
+        def md
+            @model_points[3]
+        end
+        def me
+            @model_points[4]
+        end
+        def mf
+            @model_points[5]
+        end
+        def mg
+            @model_points[6]
+        end
+        def mh
+            @model_points[7]
         end
 
         def move_left 
@@ -310,6 +331,183 @@ module RdiaGames
             Point3D.new(x, y, z) 
         end
     end 
+
+    class Line3D < Object3D
+        def initialize(a, b, color = COLOR_AQUA)
+            super(color)
+            @model_points << a
+            @model_points << b
+        end
+
+        def render(z_order_to_use = nil)
+            draw_line(@render_points, 0, 1, nil, z_order_to_use)
+        end 
+
+        def to_s 
+            "Line: [#{ma}] (#{ra}) to [#{mb}] (#{rb})"
+        end
+    end 
+
+    class FloorTile < Object3D
+        # The x, y, z coordinates are for the upper left corner
+        def initialize(x, z, length = 100, color = COLOR_WHITE)
+            super(color)
+            @draw_as_image = false
+            @model_points << Point3D.new(x,          0, z)
+            @model_points << Point3D.new(x + length, 0, z)
+            @model_points << Point3D.new(x + length, 0, z + length)
+            @model_points << Point3D.new(x,          0, z + length)
+        end
+
+        def render 
+            draw_square([ra, rb, rc, rd])
+        end 
+    end
+
+    class Wall < Object3D
+        # The x, y, z coordinates are for the upper left corner
+        def initialize(x, z, width, length, img, is_external = false)
+            super()
+            height = 100
+
+            @model_points << Point3D.new(x,         0,          z)
+            @model_points << Point3D.new(x + width, 0,          z)
+            @model_points << Point3D.new(x + width, 0 - height, z)
+            @model_points << Point3D.new(x,         0 - height, z)
+            @model_points << Point3D.new(x,         0,          z + length)
+            @model_points << Point3D.new(x + width, 0,          z + length)
+            @model_points << Point3D.new(x + width, 0 - height, z + length)
+            @model_points << Point3D.new(x,         0 - height, z + length)
+
+            if img.nil? 
+                # do nothing, this will get drawn as a solid color
+            elsif img.is_a? String
+                @img = Gosu::Image.new(img)
+            elsif img.is_a? Gosu::Image
+                @img = img
+            else 
+                raise "Invalid image parameter for wall constructor: #{img}"
+            end
+            
+            @visible_side = QUAD_ALL
+            @border_color = COLOR_WHITE
+
+            @is_external = false 
+            if is_external 
+                @is_external = true
+                @render_z_order = Z_ORDER_BORDER
+            else 
+                @render_z_order = Z_ORDER_GRAPHIC_ELEMENTS
+            end
+        end 
+
+        def render 
+            if not @visible 
+                puts "We should not draw #{self}"
+            end
+            #return unless @visible
+            draw_top 
+            if @is_external
+                # Right now, only N/S/E/W quads are used for external walls
+                if @visible_side == QUAD_N 
+                    draw_back
+                elsif @visible_side == QUAD_S 
+                    draw_front
+                elsif @visible_side == QUAD_E
+                    draw_left_side
+                elsif @visible_side == QUAD_W 
+                    draw_right_side
+                end
+                return 
+            end
+
+            if @visible_side == QUAD_N 
+                draw_back(Z_ORDER_FOCAL_ELEMENTS)
+            elsif @visible_side == QUAD_S 
+                draw_front(Z_ORDER_FOCAL_ELEMENTS)
+                draw_back
+                draw_right_side 
+                draw_left_side
+            elsif @visible_side == QUAD_E
+                draw_left_side(Z_ORDER_FOCAL_ELEMENTS)
+                draw_back
+                draw_right_side 
+                draw_left_side
+            elsif @visible_side == QUAD_W 
+                draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
+                draw_back
+                draw_front 
+                draw_left_side
+            elsif @visible_side == QUAD_NE
+                draw_back(Z_ORDER_FOCAL_ELEMENTS)
+                draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
+                draw_front 
+                draw_left_side
+            elsif @visible_side == QUAD_SE
+                draw_front(Z_ORDER_FOCAL_ELEMENTS) 
+                draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
+                draw_back
+                draw_left_side
+            elsif @visible_side == QUAD_NW
+                draw_back(Z_ORDER_FOCAL_ELEMENTS)
+                draw_left_side(Z_ORDER_FOCAL_ELEMENTS) 
+                draw_front 
+                draw_right_side
+            elsif @visible_side == QUAD_SW
+                draw_front(Z_ORDER_FOCAL_ELEMENTS) 
+                draw_left_side(Z_ORDER_FOCAL_ELEMENTS)
+                draw_back
+                draw_right_side
+            elsif @visible_side == QUAD_ALL 
+                draw_front 
+                draw_back
+                draw_right_side 
+                draw_left_side
+            else
+                puts "[#{self.class.name}] Not drawing anything because visible side is #{@visible_side}."
+            end
+        end 
+
+        def draw_front(z_order_to_use = nil) 
+            draw_quad([ra, rb, rc, rd], z_order_to_use)
+            draw_square([ra, rb, rc, rd], @border_color, z_order_to_use)
+        end
+
+        def draw_back(z_order_to_use = nil)
+            draw_quad([re, rf, rg, rh], z_order_to_use)    
+            draw_square([re, rf, rg, rh], @border_color, z_order_to_use)
+        end
+
+        def draw_right_side(z_order_to_use = nil)
+            draw_quad([rb, rf, rg, rc], z_order_to_use)
+            draw_square([rb, rf, rg, rc], @border_color, z_order_to_use)
+        end 
+
+        def draw_left_side(z_order_to_use = nil)
+            draw_quad([ra, re, rh, rd], z_order_to_use)
+            draw_square([ra, re, rh, rd], @border_color, z_order_to_use)
+        end 
+
+        def draw_top(z_order_to_use = nil)
+            draw_quad([rd, rh, rg, rc], z_order_to_use)
+            draw_square([rd, rh, rg, rc], @border_color, z_order_to_use)
+        end 
+
+        # Note in 2.5D this would never really get used
+        def draw_bottom(z_order_to_use = nil) 
+            draw_quad([ra, re, rf, rb], z_order_to_use)  
+            draw_square([ra, re, rf, rb], @border_color, z_order_to_use)
+        end
+    end
+
+    class Cube < Wall
+        # The x, y, z coordinates are for the upper left corner
+        def initialize(x, z, size, color = COLOR_AQUA)
+            super(x, z, size, size, nil)
+            @draw_as_image = false
+            @color = color
+        end 
+    end
 
     class PointInsidePolygon
         # check if a given point lies inside a given polygon
@@ -599,209 +797,5 @@ module RdiaGames
             #[drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
             [0, 0, mapX, mapY, side, orig_map_x, orig_map_y]
         end
-    end
-
-
-    class Line3D < Object3D
-        def initialize(a, b, color = COLOR_AQUA)
-            super(color)
-            reset_angle
-            @model_points << a
-            @model_points << b
-        end
-
-        def a 
-            @model_points[0]
-        end
-        def b
-            @model_points[1]
-        end
-
-        def render(z_order_to_use = nil)
-            draw_line(@render_points, 0, 1, nil, z_order_to_use)
-        end 
-
-        def to_s 
-            "Line: [#{a}] (#{@render_points[0]}) to [#{b}] (#{@render_points[1]})"
-        end
-    end 
-
-    class FloorTile < Object3D
-        # The x, y, z coordinates are for the upper left corner
-        def initialize(x, z, length = 100, color = COLOR_WHITE)
-            super(color)
-            @x = x 
-            @y = 0 
-            @z = z
-            @length = length
-            @draw_as_image = false
-            reset
-        end 
-
-        def reset 
-            reset_angle
-            @model_points << Point3D.new(@x,           @y,           @z)
-            @model_points << Point3D.new(@x + @length, @y,           @z)
-            @model_points << Point3D.new(@x + @length, @y,           @z + @length)
-            @model_points << Point3D.new(@x,           @y,           @z + @length)
-        end
-
-        def render 
-            draw_square([a, b, c, d])
-        end 
-    end
-
-    class Wall < Object3D
-        # The x, y, z coordinates are for the upper left corner
-        def initialize(x, z, width, length, img, is_external = false)
-            super()
-            @x = x 
-            @y = 0
-            @z = z
-            @length = length
-            @width = width
-            @height = 100
-            reset
-            if img.nil? 
-                # do nothing, this will get drawn as a solid color
-            elsif img.is_a? String
-                @img = Gosu::Image.new(img)
-            elsif img.is_a? Gosu::Image
-                @img = img
-            else 
-                raise "Invalid image parameter for wall constructor: #{img}"
-            end
-            
-            @visible_side = QUAD_ALL
-            @border_color = COLOR_WHITE
-
-            @is_external = false 
-            if is_external 
-                @is_external = true
-                @render_z_order = Z_ORDER_BORDER
-            else 
-                @render_z_order = Z_ORDER_GRAPHIC_ELEMENTS
-            end
-        end 
-
-        def reset 
-            reset_angle
-            #puts "Creating wall anchored at bottom left #{@x}, #{@z}"
-            @model_points << Point3D.new(@x,          @y,           @z)
-            @model_points << Point3D.new(@x + @width, @y,           @z)
-            @model_points << Point3D.new(@x + @width, @y - @height, @z)
-            @model_points << Point3D.new(@x,          @y - @height, @z)
-            @model_points << Point3D.new(@x,          @y,           @z + @length)
-            @model_points << Point3D.new(@x + @width, @y,           @z + @length)
-            @model_points << Point3D.new(@x + @width, @y - @height, @z + @length)
-            @model_points << Point3D.new(@x,          @y - @height, @z + @length)
-        end
-
-        def render 
-            if not @visible 
-                puts "We should not draw #{self}"
-            end
-            #return unless @visible
-            draw_top 
-            if @is_external
-                # Right now, only N/S/E/W quads are used for external walls
-                if @visible_side == QUAD_N 
-                    draw_back
-                elsif @visible_side == QUAD_S 
-                    draw_front
-                elsif @visible_side == QUAD_E
-                    draw_left_side
-                elsif @visible_side == QUAD_W 
-                    draw_right_side
-                end
-                return 
-            end
-
-            if @visible_side == QUAD_N 
-                draw_back(Z_ORDER_FOCAL_ELEMENTS)
-            elsif @visible_side == QUAD_S 
-                draw_front(Z_ORDER_FOCAL_ELEMENTS)
-                draw_back
-                draw_right_side 
-                draw_left_side
-            elsif @visible_side == QUAD_E
-                draw_left_side(Z_ORDER_FOCAL_ELEMENTS)
-                draw_back
-                draw_right_side 
-                draw_left_side
-            elsif @visible_side == QUAD_W 
-                draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
-                draw_back
-                draw_front 
-                draw_left_side
-            elsif @visible_side == QUAD_NE
-                draw_back(Z_ORDER_FOCAL_ELEMENTS)
-                draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
-                draw_front 
-                draw_left_side
-            elsif @visible_side == QUAD_SE
-                draw_front(Z_ORDER_FOCAL_ELEMENTS) 
-                draw_right_side(Z_ORDER_FOCAL_ELEMENTS) 
-                draw_back
-                draw_left_side
-            elsif @visible_side == QUAD_NW
-                draw_back(Z_ORDER_FOCAL_ELEMENTS)
-                draw_left_side(Z_ORDER_FOCAL_ELEMENTS) 
-                draw_front 
-                draw_right_side
-            elsif @visible_side == QUAD_SW
-                draw_front(Z_ORDER_FOCAL_ELEMENTS) 
-                draw_left_side(Z_ORDER_FOCAL_ELEMENTS)
-                draw_back
-                draw_right_side
-            elsif @visible_side == QUAD_ALL 
-                draw_front 
-                draw_back
-                draw_right_side 
-                draw_left_side
-            else
-                puts "[#{self.class.name}] Not drawing anything because visible side is #{@visible_side}."
-            end
-        end 
-
-        def draw_front(z_order_to_use = nil) 
-            draw_quad([a, b, c, d], z_order_to_use)
-            draw_square([a, b, c, d], @border_color, z_order_to_use)
-        end
-
-        def draw_back(z_order_to_use = nil)
-            draw_quad([e, f, g, h], z_order_to_use)    
-            draw_square([e, f, g, h], @border_color, z_order_to_use)
-        end
-
-        def draw_right_side(z_order_to_use = nil)
-            draw_quad([b, f, g, c], z_order_to_use)
-            draw_square([b, f, g, c], @border_color, z_order_to_use)
-        end 
-
-        def draw_left_side(z_order_to_use = nil)
-            draw_quad([a, e, h, d], z_order_to_use)
-            draw_square([a, e, h, d], @border_color, z_order_to_use)
-        end 
-
-        def draw_top(z_order_to_use = nil)
-            draw_quad([d, h, g, c], z_order_to_use)
-            draw_square([d, h, g, c], @border_color, z_order_to_use)
-        end 
-
-        # Note in 2.5D this would never really get used
-        def draw_bottom(z_order_to_use = nil) 
-            draw_quad([a, e, f, b], z_order_to_use)  
-            draw_square([a, e, f, b], @border_color, z_order_to_use)
-        end
-    end
-
-    class Cube < Wall
-        # The x, y, z coordinates are for the upper left corner
-        def initialize(x, z, size, color = COLOR_AQUA)
-            super(x, z, size, size, nil)
-            @draw_as_image = false
-            @color = color
-        end 
     end
 end
