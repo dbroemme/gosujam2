@@ -219,7 +219,6 @@ class CubeRenderDisplay < Widget
 
         # Show the origin (pivot) point as a cube
         #@center_cube = Cube.new($center.x, $center.z, 25, COLOR_LIGHT_BLUE)
-        #@center_cube.angle_y = @all_objects[0].angle_y
         #@center_cube.calc_points
 
         # Darren Show the directional vector as a cube
@@ -228,7 +227,6 @@ class CubeRenderDisplay < Widget
         extended_dir_x = @dir_x * dir_scale  
         extended_dir_y = @dir_y * dir_scale  
         @dir_cube = Cube.new($center.x + extended_dir_y, $center.z + extended_dir_x, 25, COLOR_PEACH)
-        @dir_cube.angle_y = @all_objects[0].angle_y
         @dir_cube.calc_points
     end 
 
@@ -291,7 +289,7 @@ class CubeRenderDisplay < Widget
         "Location: #{@cube.model_points[0].x.round}, #{@cube.model_points[0].y.round}, #{@cube.model_points[0].z.round}"
     end 
     def angle_text 
-        "Angle: #{@cube.angle_x.round(2)}, #{@cube.angle_y.round(2)}, #{@cube.angle_z.round(2)}"
+        "Angle: #{$camera_angle.x.round(2)}, #{$camera_angle.y.round(2)}, #{$camera_angle.z.round(2)}"
     end 
     def dir_text 
         "Direction: #{@dir_y.round(2)}, #{@dir_x.round(2)}    quad: #{@dir_quad}   grid: #{@grid.determine_grid_x($center.x)}, #{@grid.determine_grid_y($center.z)}"
@@ -322,8 +320,7 @@ class CubeRenderDisplay < Widget
             @dir_quad = QUAD_N 
             return
         end
-        angle_y = @all_objects[0].angle_y
-        angle_y = angle_y % DEG_360 
+        angle_y = $camera_angle.y % DEG_360 
         if angle_y < DEG_22_5
             @dir_quad = QUAD_N
         elsif angle_y < DEG_67_5 
@@ -561,23 +558,14 @@ class CubeRenderDisplay < Widget
             end
 
         elsif id == Gosu::KbD
-            modify do |n|
-                n.angle_y = n.angle_y + 0.05
-            end
-            angle_y = @cube.angle_y  # just grab the value from one of the objects
-            # Now calculate the new dir_x, dir_y
-            @dir_x = Math.cos(angle_y)
-            @dir_y = Math.sin(angle_y)
+            $camera_angle.y = $camera_angle.y + 0.05
+            @dir_x = Math.cos($camera_angle.y)
+            @dir_y = Math.sin($camera_angle.y)
             determine_directional_quadrant
-            #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
         elsif id == Gosu::KbA
-            modify do |n|
-                n.angle_y = n.angle_y - 0.05
-            end
-            angle_y = @cube.angle_y  # just grab the value from one of the objects
-            # Now calculate the new dir_x, dir_y
-            @dir_x = Math.cos(angle_y)
-            @dir_y = Math.sin(angle_y)
+            $camera_angle.y = $camera_angle.y - 0.05
+            @dir_x = Math.cos($camera_angle.y)
+            @dir_y = Math.sin($camera_angle.y)
             determine_directional_quadrant
         end
     end

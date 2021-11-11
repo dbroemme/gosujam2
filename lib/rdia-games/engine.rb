@@ -9,7 +9,9 @@ module RdiaGames
     def initialize_rdia_games 
         $cos_cache = {}
         $sin_cache = {}
+
         $camera = Point3D.new(0, 0, 0)
+        $camera_angle = Point3D.new(0, 0, 0)
         $center = Point3D.new(0, 0, 0)
     end 
 
@@ -31,7 +33,7 @@ module RdiaGames
         cached
     end
 
-    def calc_point(model_point, angle_x = 0, angle_y = 0, angle_z = 0)
+    def calc_point(model_point)
         # XD = X(N)-PIVX
         # YD = Y(N)-PIVY
         # ZD = Z(N)-PIVZ
@@ -41,12 +43,12 @@ module RdiaGames
 
         # ZX = XD*Cos{ANGLEZ} - YD*Sin{ANGLEZ} - XD
         # ZY = XD*Sin{ANGLEZ} + YD*Cos{ANGLEZ} - YD
-        z_cos = rdia_cos(angle_z)
-        z_sin = rdia_sin(angle_z)
-        y_cos = rdia_cos(angle_y)
-        y_sin = rdia_sin(angle_y)
-        x_cos = rdia_cos(angle_x)
-        x_sin = rdia_sin(angle_x)
+        z_cos = rdia_cos($camera_angle.z)
+        z_sin = rdia_sin($camera_angle.z)
+        y_cos = rdia_cos($camera_angle.y)
+        y_sin = rdia_sin($camera_angle.y)
+        x_cos = rdia_cos($camera_angle.x)
+        x_sin = rdia_sin($camera_angle.x)
 
         zx = (xd * z_cos) - (yd * z_sin) - xd
         zy = (xd * z_sin) + (yd * z_cos) - yd
@@ -138,9 +140,6 @@ module RdiaGames
     class Object3D 
         attr_accessor :model_points
         attr_accessor :render_points
-        attr_accessor :angle_x
-        attr_accessor :angle_y
-        attr_accessor :angle_z
         attr_accessor :speed
         attr_accessor :color
         attr_accessor :visible
@@ -151,9 +150,6 @@ module RdiaGames
         def initialize(color = COLOR_AQUA)
             @model_points = []
             @render_points = []
-            @angle_x = 0
-            @angle_y = 0
-            @angle_z = 0
             @color = color
             @visible = true
             @draw_as_image = true
@@ -324,7 +320,7 @@ module RdiaGames
         def calc_points
             @render_points = [] 
             @model_points.each do |model_point|
-                @render_points << calc_point(model_point, @angle_x, @angle_y, @angle_z)
+                @render_points << calc_point(model_point)
             end 
         end 
     end 
