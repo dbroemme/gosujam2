@@ -31,7 +31,6 @@ class CubeRender < RdiaGame
         register_hold_down_key(Gosu::KbU)
         register_hold_down_key(Gosu::KbI)
         register_hold_down_key(Gosu::KbO)
-
         register_hold_down_key(Gosu::KbA)
         register_hold_down_key(Gosu::KbS)
         register_hold_down_key(Gosu::KbD)
@@ -41,11 +40,8 @@ class CubeRender < RdiaGame
         register_hold_down_key(Gosu::KbJ)
         register_hold_down_key(Gosu::KbK)
         register_hold_down_key(Gosu::KbL)
-
-        # scaling
         register_hold_down_key(Gosu::KbUp)
         register_hold_down_key(Gosu::KbDown)
-
         register_hold_down_key(Gosu::KbM)
         register_hold_down_key(Gosu::KbPeriod)
 
@@ -87,10 +83,6 @@ class CubeRenderDisplay < Widget
         @mode = MODE_ISOMETRIC
         @continuous_movement = true
 
-        # Axis lines
-        #@x_axis = ThreeDLine.new(Point3D.new(-1000, 0, 0), Point3D.new(1000, 0, 0))
-        #@y_axis = ThreeDLine.new(Point3D.new(0, -AXIS_END, 0), Point3D.new(0, AXIS_END, 0))
-        #@z_axis = ThreeDLine.new(Point3D.new(0, 0, -AXIS_END), Point3D.new(0, 0, AXIS_END))
 
         # Our objects
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
@@ -144,11 +136,6 @@ class CubeRenderDisplay < Widget
             @all_objects << right_wall
             z = z + 500
         end
-
-        #@all_objects << Cube.new(300, 0, 300, 100, COLOR_GREEN)
-        #@all_objects << Cube.new(300, 0, -300, 100, COLOR_BLUE)
-        #@all_objects << Cube.new(-300, 0, -300, 100, COLOR_LIME)
-        #@all_objects << Cube.new(50, 0, 0, 50, COLOR_AQUA)
 
         x = -1000
         while x < 950
@@ -223,34 +210,6 @@ class CubeRenderDisplay < Widget
                     grid.set_tile(grid_x, grid_y, img)
                     all_objects << img
                 end
-
-                #elsif char == "Y" or char == "18"
-                #    img = Dot.new(@yellow_dot)
-                #elsif char == "G" or char == "19"
-                #    img = Dot.new(@green_dot)
-                #elsif char == "F" or char == "66"
-                #    img = OutOfBounds.new(@fire_transition_tile)
-                #elsif char == "T"
-                #    img = DiagonalWall.new(@red_wall_nw, QUAD_NW)
-                #elsif char == "V"
-                #    img = DiagonalWall.new(@red_wall_ne, QUAD_NE)
-                #elsif char == "X"
-                #    img = DiagonalWall.new(@red_wall_sw, QUAD_SW)
-                #elsif char == "Z"
-                #    img = DiagonalWall.new(@red_wall_se, QUAD_SE)
-                #elsif char == "E" or char == "64"
-                #    img = GoalArea.new(@goal_tile)
-                #elsif char == "N"
-                #    img = BackgroundArea.new(@tree_tile)
-                #elsif char == "D"
-                #    img = BackgroundArea.new(@torch_tile)
-                #elsif char == "O"
-                #    img = OneWayDoor.new(@one_way_tile, @red_wall)
-                #    @one_way_doors << img
-                #elsif char.match?(/[[:digit:]]/)
-                #    tile_index = char.to_i
-                #    img = BackgroundArea.new(@tileset[tile_index])
-
 
                 grid_x = grid_x + 1
                 index = index + 2
@@ -427,29 +386,6 @@ class CubeRenderDisplay < Widget
             end
         elsif id == Gosu::KbC
             puts "------------"
-            # Send a ray the direction we are looking (direction vector)
-            # and see what it hits
-            #t1 = Time.now
-            #raycast_for_visibility
-            #t2 = Time.now
-            #delta = t2 - t1 # in seconds
-            #puts "Raycast took #{delta} seconds"
-            #(0..1279).each do |x|
-            #    ray_data = raycast(x) 
-            #    puts "[#{x}]  #{ray_data}"
-            #end
-            #puts " "
-            
-            #left_ray_data = raycast(0)
-            #puts "left:  #{left_ray_data}"
-            #left_point = Point.new(left_ray_data.map_y * 100, left_ray_data.map_x * 100)
-            #middle_ray_data = raycast(640)
-            #puts "mid:   #{middle_ray_data}"
-            #right_ray_data = raycast(GAME_WIDTH)
-            #puts "right: #{right_ray_data}"
-            #right_point = Point.new(right_ray_data.map_y * 100, right_ray_data.map_x * 100)
-            #vb = [camera_point, left_point, right_point]
-            #vb = visibility_polygon
             
             #cx = $camera_x
             #cz = -$camera_z
@@ -474,8 +410,8 @@ class CubeRenderDisplay < Widget
             forward_right = Point2D.new(side_right.x + (@dir_y * size_square), side_right.y + (@dir_x * size_square))
             
             puts "Find intersecting lines with worlds edge"
-            bottom_line = IntersectionLine.new(side_left, side_right)
-            world_left_edge = IntersectionLine.new(Point2D.new(WORLD_X_START, WORLD_Z_START), side_right)
+            bottom_line = Line2D.new(side_left, side_right)
+            world_left_edge = Line2D.new(Point2D.new(WORLD_X_START, WORLD_Z_START), side_right)
 
 
 
@@ -513,9 +449,6 @@ class CubeRenderDisplay < Widget
         
         
         
-        
-        
-        
         elsif id == Gosu::KbR
             modify do |n|
                 if n.is_external 
@@ -529,14 +462,6 @@ class CubeRenderDisplay < Widget
                     n.color = COLOR_AQUA 
                 end
             end
-            #puts "------------"
-            #puts "Lets raycast"
-            #ray_line =  raycast(640) 
-            #puts ray_line
-            #slope = ray_line.slope 
-            #puts slope
-            #qfs = ray_line.quad_from_slope
-            #puts "Quad: #{qfs}  #{str_qfs}"
         elsif id == Gosu::KbV 
             @pause = !@pause
         end
@@ -576,7 +501,6 @@ class CubeRenderDisplay < Widget
 
     def raycast_for_visibility
         (0..1279).each do |x|
-        #(640..641).each do |x|
             ray_data = raycast(x) 
             if ray_data.at_ray != 0
                 # Get the tile at this spot
@@ -584,16 +508,6 @@ class CubeRenderDisplay < Widget
                 if tile
                     quad = ray_data.quad_from_slope
                     tile.set_visible_side(quad)
-
-                    # This is for DEBUG
-                    #if tile.is_a? Cube 
-                        # do nothing
-                    #else
-                    #    tile.color = COLOR_RED
-                    #end
-                    #puts "#{ray_data} ->  #{tile.class.name} #{@grid.determine_grid_x(tile.model_points[0].x)}, #{@grid.determine_grid_y(tile.model_points[0].z)}  #{display_quad(quad)}"
-                #else
-                #    puts "#{ray_data} ->  #{tile}."
                 end
             end
         end
@@ -629,17 +543,6 @@ class CubeRenderDisplay < Widget
     end
 
     def handle_movement id, mouse_x, mouse_y 
-        #    @cube.move_left
-        #    @cube.move_right
-        #    @cube.move_up
-        #    @cube.move_down
-        #    @cube.move_towards
-        #    @cube.move_away
-        #elsif id == Gosu::KbU              # change camera elevation later, don't need it now
-        #    $camera_y = $camera_y - @speed
-        #elsif id == Gosu::KbO              # change camera elevation later, don't need it now
-        #    $camera_y = $camera_y + @speed
-
         if id == Gosu::KbQ
             # Lateral movement
             $camera_x = $camera_x + @speed
@@ -662,8 +565,6 @@ class CubeRenderDisplay < Widget
 
                 $camera_z = $camera_z - movement_z
                 $center_z = proposed_z
-            #else 
-            #    puts "Hit a wall: #{proposed}"
             end
 
         elsif id == Gosu::KbS
@@ -679,8 +580,6 @@ class CubeRenderDisplay < Widget
 
                 $camera_z = $camera_z + movement_z
                 $center_z = proposed_z
-            #else 
-            #    puts "Hit a wall: #{proposed}"
             end
 
         elsif id == Gosu::KbD
@@ -702,34 +601,6 @@ class CubeRenderDisplay < Widget
             @dir_x = Math.cos(angle_y)
             @dir_y = Math.sin(angle_y)
             determine_directional_quadrant
-            #puts "Math.cos/sin(#{angle_y}) = #{@dir_y}, #{@dir_x}"
-        #
-        # not really used
-        #
-        #elsif id == Gosu::KbF
-        #    modify do |n|
-        #        n.angle_x = n.angle_x - 0.05
-        #    end
-        #elsif id == Gosu::KbH
-        #    modify do |n|
-        #        n.angle_x = n.angle_x + 0.05
-        #    end
-        #elsif id == Gosu::KbR
-        #    modify do |n|
-        #        n.angle_y = n.angle_y - 0.05
-        #    end
-        #elsif id == Gosu::KbY
-        #    modify do |n|
-        #        n.angle_y = n.angle_y + 0.05
-        #    end
-        #elsif id == Gosu::KbT
-        #    modify do |n|
-        #        n.angle_z = n.angle_z - 0.05
-        #    end
-        #elsif id == Gosu::KbG
-        #    modify do |n|
-        #        n.angle_z = n.angle_z + 0.05
-        #    end
         end
     end
 
