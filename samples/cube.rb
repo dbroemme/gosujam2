@@ -20,6 +20,8 @@ MODE_REAL_THREE_D = "real3d"
 AXIS_BEGIN = -500
 AXIS_END = 500
 
+RDIA_SCALE = 0.001
+
 class Point2D
     attr_accessor :x
     attr_accessor :y
@@ -336,31 +338,7 @@ class RayCaster
             #puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
         end
 
-        # Calculate distance projected on camera direction. This is the shortest distance from the point where the wall is
-        # hit to the camera plane. Euclidean to center camera point would give fisheye effect!
-        # This can be computed as (mapX - posX + (1 - stepX) / 2) / rayDirX for side == 0, or same formula with Y
-        # for size == 1, but can be simplified to the code below thanks to how sideDist and deltaDist are computed:
-        # because they were left scaled to |rayDir|. sideDist is the entire length of the ray above after the multiple
-        # steps, but we subtract deltaDist once because one step more into the wall was taken above.
-        #if side == 0
-        #    perpWallDist = (sideDistX - deltaDistX)
-        #else
-        #    perpWallDist = (sideDistY - deltaDistY)
-        #end
-
-        # Calculate height of line to draw on screen
-        #lineHeight = (@h / perpWallDist).to_i
-
-        # calculate lowest and highest pixel to fill in current stripe
-        #drawStart = ((-lineHeight / 2) + (@h / 2)).to_i
-        #if drawStart < 0
-        #    drawStart = 0
-        #end
-        #drawEnd = ((lineHeight / 2) + (@h / 2)).to_i
-        #if drawEnd >= @h
-        #    drawEnd = @h - 1
-        #end
-        
+        # TODO get rid of draw start and end since we are not using
         #[drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
         [0, 0, mapX, mapY, side, orig_map_x, orig_map_y]
     end
@@ -392,7 +370,6 @@ class ThreeDObject
     attr_accessor :color
     attr_accessor :visible
     attr_accessor :visible_side
-    attr_accessor :scale
     attr_accessor :is_external
     attr_accessor :render_z_order
 
@@ -400,11 +377,10 @@ class ThreeDObject
         @move_x = 0     # TODO make public?
         @move_y = 0     # TODO make public?
         clear_points 
-        reset_angle_and_scale
+        reset_angle
         @color = color
         @visible = true
         @draw_as_image = true
-        @scale = 1
         @render_z_order = Z_ORDER_BORDER
     end 
 
@@ -478,11 +454,10 @@ class ThreeDObject
         @render_points = []
     end
 
-    def reset_angle_and_scale 
+    def reset_angle
         @angle_x = 0
         @angle_y = 0
         @angle_z = 0
-        @scale = 0.001
     end
 
     def move_left 
@@ -560,7 +535,6 @@ class ThreeDObject
         @render_points = [] 
         @model_points.each do |model_point|
             @render_points << calc_point(model_point,
-                                         @scale,
                                          @angle_x, @angle_y, @angle_z,
                                          @move_x, @move_y)
         end 
@@ -586,7 +560,7 @@ class ThreeDObject
         cached
     end
 
-    def calc_point(model_point, scale, angle_x = 0, angle_y = 0, angle_z = 0, move_x = 0, move_y = 0)
+    def calc_point(model_point, angle_x = 0, angle_y = 0, angle_z = 0, move_x = 0, move_y = 0)
         # XD = X(N)-PIVX
         # YD = Y(N)-PIVY
         # ZD = Z(N)-PIVZ
@@ -641,8 +615,8 @@ class ThreeDObject
         #    z = model_point.z
         #else 
             z = model_point.z + z_rot_offset + $camera_z
-            x = (((model_point.x + x_rot_offset + $camera_x) / z) / scale) + move_x 
-            y = (((model_point.y + y_rot_offset + $camera_y) / z) / scale) + move_y
+            x = (((model_point.x + x_rot_offset + $camera_x) / z) / RDIA_SCALE) + move_x 
+            y = (((model_point.y + y_rot_offset + $camera_y) / z) / RDIA_SCALE) + move_y
         #end 
 
         Point3D.new(x, y, z) 
@@ -653,7 +627,7 @@ class ThreeDLine < ThreeDObject
     def initialize(a, b, color = COLOR_AQUA)
         super(color)
         #puts "Creating line anchored at #{a.x}, #{a.z} to #{b.x}, #{b.z} "
-        reset_angle_and_scale
+        reset_angle
         @model_points << a
         @model_points << b
     end
@@ -687,7 +661,7 @@ class FloorTile < ThreeDObject
     end 
 
     def reset 
-        reset_angle_and_scale
+        reset_angle
         @model_points << Point3D.new(@x,           @y,           @z)
         @model_points << Point3D.new(@x + @length, @y,           @z)
         @model_points << Point3D.new(@x + @length, @y,           @z + @length)
@@ -733,7 +707,7 @@ class Wall < ThreeDObject
     end 
 
     def reset 
-        reset_angle_and_scale
+        reset_angle
         #puts "Creating wall anchored at bottom left #{@x}, #{@z}"
         @model_points << Point3D.new(@x,          @y,           @z)
         @model_points << Point3D.new(@x + @width, @y,           @z)
