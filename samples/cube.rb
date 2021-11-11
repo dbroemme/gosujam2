@@ -72,8 +72,6 @@ class CubeRenderDisplay < Widget
             puts str
         end
 
-        @raycaster = RayCaster.new(@raycast_map, GAME_WIDTH, GAME_HEIGHT)
-
         # Near and far walls
         x = -1000
         while x < 550
@@ -317,7 +315,15 @@ class CubeRenderDisplay < Widget
             @engine.add_debug_object Line3D.new(Point3D.new(vb[3].x, 0, vb[3].y), Point3D.new(vb[0].x, 0, vb[0].y), COLOR_RED)
         
         
-        
+        elsif id == Gosu::KbX 
+            puts "------------"
+            puts "Lets raycast"
+            ray_line = raycast(640) 
+            puts ray_line
+            slope = ray_line.slope 
+            puts slope
+            qfs = ray_line.quad_from_slope
+            puts "Quad: #{qfs}"
         
         
         
@@ -364,7 +370,7 @@ class CubeRenderDisplay < Widget
         tile_y = @grid.determine_grid_y(@engine.center.z)
         adj_tile_x = tile_x + @grid.grid_x_offset
         adj_tile_y = tile_y + @grid.grid_y_offset
-        drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @raycaster.ray(x, adj_tile_y, adj_tile_x, @engine.direction_x, @engine.direction_y, plane_x, plane_y)
+        drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @engine.ray(x, adj_tile_y, adj_tile_x, @engine.direction_x, @engine.direction_y, plane_x, plane_y, @raycast_map, GAME_WIDTH)
         adj_map_x = mapX - @grid.grid_y_offset   # The raycast map is set the other way
         adj_map_y = mapY - @grid.grid_x_offset
         adj_orig_map_x = orig_map_x - @grid.grid_y_offset

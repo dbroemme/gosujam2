@@ -214,6 +214,82 @@ module RdiaGames
                 render_debug_objects
             end 
         end
+
+        def ray(x, posX, posY, dirX, dirY, planeX, planeY, world_map, screen_width)
+            # calculate ray position and direction
+            cameraX = (2 * (x / screen_width.to_f)) - 1;   # x-coordinate in camera space
+            rayDirX = dirX + (planeX * cameraX)
+            rayDirY = dirY + (planeY * cameraX)
+            # which box of the map we're in
+            mapX = posX.to_i
+            mapY = posY.to_i
+
+            orig_map_x = mapX
+            orig_map_y = mapY
+
+            # length of ray from current position to next x or y-side: sideDistX, sideDistY
+            
+            # length of ray from one x or y-side to next x or y-side
+            # these are derived as:
+            # deltaDistX = sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX))
+            # deltaDistY = sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY))
+            # which can be simplified to abs(|rayDir| / rayDirX) and abs(|rayDir| / rayDirY)
+            # where |rayDir| is the length of the vector (rayDirX, rayDirY). Its length,
+            # unlike (dirX, dirY) is not 1, however this does not matter, only the
+            # ratio between deltaDistX and deltaDistY matters, due to the way the DDA
+            # stepping further below works. So the values can be computed as below.
+            # Division through zero is prevented, even though technically that's not
+            # needed in C++ with IEEE 754 floating point values.
+            deltaDistX = (rayDirX == 0) ? 1e30 : (1 / rayDirX).abs
+            deltaDistY = (rayDirY == 0) ? 1e30 : (1 / rayDirY).abs
+            
+            perpWallDist = nil    # double
+            
+            # what direction to step in x or y-direction (either +1 or -1)
+            stepX = nil    # int
+            stepY = nil    # int
+
+                    
+            hit = 0        # was there a wall hit? (int) (is this really a boolean)
+            side = nil     # was a NS or a EW wall hit? (int) (is this really a boolean)
+            # calculate step and initial sideDist
+            if rayDirX < 0
+                stepX = -1
+                sideDistX = (posX - mapX) * deltaDistX
+            else
+                stepX = 1
+                sideDistX = (mapX + 1.0 - posX) * deltaDistX
+            end
+            if rayDirY < 0
+                stepY = -1
+                sideDistY = (posY - mapY) * deltaDistY
+            else
+                stepY = 1;
+                sideDistY = (mapY + 1.0 - posY) * deltaDistY
+            end
+            # perform DDA
+            while hit == 0
+                # jump to next map square, either in x-direction, or in y-direction
+                if sideDistX < sideDistY
+                    sideDistX += deltaDistX
+                    mapX += stepX
+                    side = 0
+                else
+                    sideDistY += deltaDistY
+                    mapY += stepY
+                    side = 1
+                end
+                # Check if ray has hit a wall
+                if world_map[mapX][mapY] > 0
+                    hit = 1
+                end
+                #puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
+            end
+
+            # TODO get rid of draw start and end since we are not using
+            #[drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
+            [0, 0, mapX, mapY, side, orig_map_x, orig_map_y]
+        end
     end
 
 
@@ -842,89 +918,5 @@ module RdiaGames
         def to_s 
             "Ray x: #{@x} Tile[#{@tile_x}, #{@tile_y}] -> Map[#{@map_y}, #{@map_x}]  At: #{@at_ray}  Side: #{@side}"
         end 
-    end
-    
-    class RayCaster 
-        def initialize(world_map, screen_width, screen_height)
-            @world_map = world_map
-            @w = screen_width
-            @h = screen_height
-        end 
-
-        def ray(x, posX, posY, dirX, dirY, planeX, planeY)
-            # calculate ray position and direction
-            cameraX = (2 * (x / @w.to_f)) - 1;   # x-coordinate in camera space
-            rayDirX = dirX + (planeX * cameraX)
-            rayDirY = dirY + (planeY * cameraX)
-            # which box of the map we're in
-            mapX = posX.to_i
-            mapY = posY.to_i
-
-            orig_map_x = mapX
-            orig_map_y = mapY
-
-            # length of ray from current position to next x or y-side: sideDistX, sideDistY
-            
-            # length of ray from one x or y-side to next x or y-side
-            # these are derived as:
-            # deltaDistX = sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX))
-            # deltaDistY = sqrt(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY))
-            # which can be simplified to abs(|rayDir| / rayDirX) and abs(|rayDir| / rayDirY)
-            # where |rayDir| is the length of the vector (rayDirX, rayDirY). Its length,
-            # unlike (dirX, dirY) is not 1, however this does not matter, only the
-            # ratio between deltaDistX and deltaDistY matters, due to the way the DDA
-            # stepping further below works. So the values can be computed as below.
-            # Division through zero is prevented, even though technically that's not
-            # needed in C++ with IEEE 754 floating point values.
-            deltaDistX = (rayDirX == 0) ? 1e30 : (1 / rayDirX).abs
-            deltaDistY = (rayDirY == 0) ? 1e30 : (1 / rayDirY).abs
-            
-            perpWallDist = nil    # double
-            
-            # what direction to step in x or y-direction (either +1 or -1)
-            stepX = nil    # int
-            stepY = nil    # int
-
-                    
-            hit = 0        # was there a wall hit? (int) (is this really a boolean)
-            side = nil     # was a NS or a EW wall hit? (int) (is this really a boolean)
-            # calculate step and initial sideDist
-            if rayDirX < 0
-                stepX = -1
-                sideDistX = (posX - mapX) * deltaDistX
-            else
-                stepX = 1
-                sideDistX = (mapX + 1.0 - posX) * deltaDistX
-            end
-            if rayDirY < 0
-                stepY = -1
-                sideDistY = (posY - mapY) * deltaDistY
-            else
-                stepY = 1;
-                sideDistY = (mapY + 1.0 - posY) * deltaDistY
-            end
-            # perform DDA
-            while hit == 0
-                # jump to next map square, either in x-direction, or in y-direction
-                if sideDistX < sideDistY
-                    sideDistX += deltaDistX
-                    mapX += stepX
-                    side = 0
-                else
-                    sideDistY += deltaDistY
-                    mapY += stepY
-                    side = 1
-                end
-                # Check if ray has hit a wall
-                if @world_map[mapX][mapY] > 0
-                    hit = 1
-                end
-                #puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
-            end
-
-            # TODO get rid of draw start and end since we are not using
-            #[drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
-            [0, 0, mapX, mapY, side, orig_map_x, orig_map_y]
-        end
     end
 end
