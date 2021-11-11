@@ -366,7 +366,7 @@ class RayCaster
     end
 end
 
-class ThreeDPoint
+class Point3D
     attr_accessor :x
     attr_accessor :y 
     attr_accessor :z 
@@ -645,7 +645,7 @@ class ThreeDObject
             y = (((model_point.y + y_rot_offset + $camera_y) / z) / scale) + move_y
         #end 
 
-        ThreeDPoint.new(x, y, z) 
+        Point3D.new(x, y, z) 
     end
 end 
 
@@ -688,10 +688,10 @@ class FloorTile < ThreeDObject
 
     def reset 
         reset_angle_and_scale
-        @model_points << ThreeDPoint.new(@x,           @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @length, @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @length, @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x,           @y,           @z + @length)
+        @model_points << Point3D.new(@x,           @y,           @z)
+        @model_points << Point3D.new(@x + @length, @y,           @z)
+        @model_points << Point3D.new(@x + @length, @y,           @z + @length)
+        @model_points << Point3D.new(@x,           @y,           @z + @length)
     end
 
     def render 
@@ -735,14 +735,14 @@ class Wall < ThreeDObject
     def reset 
         reset_angle_and_scale
         #puts "Creating wall anchored at bottom left #{@x}, #{@z}"
-        @model_points << ThreeDPoint.new(@x,          @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @width, @y,           @z)
-        @model_points << ThreeDPoint.new(@x + @width, @y - @height, @z)
-        @model_points << ThreeDPoint.new(@x,          @y - @height, @z)
-        @model_points << ThreeDPoint.new(@x,          @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x + @width, @y,           @z + @length)
-        @model_points << ThreeDPoint.new(@x + @width, @y - @height, @z + @length)
-        @model_points << ThreeDPoint.new(@x,          @y - @height, @z + @length)
+        @model_points << Point3D.new(@x,          @y,           @z)
+        @model_points << Point3D.new(@x + @width, @y,           @z)
+        @model_points << Point3D.new(@x + @width, @y - @height, @z)
+        @model_points << Point3D.new(@x,          @y - @height, @z)
+        @model_points << Point3D.new(@x,          @y,           @z + @length)
+        @model_points << Point3D.new(@x + @width, @y,           @z + @length)
+        @model_points << Point3D.new(@x + @width, @y - @height, @z + @length)
+        @model_points << Point3D.new(@x,          @y - @height, @z + @length)
     end
 
     def render 
@@ -922,9 +922,9 @@ class CubeRenderDisplay < Widget
         @continuous_movement = true
 
         # Axis lines
-        #@x_axis = ThreeDLine.new(ThreeDPoint.new(-1000, 0, 0), ThreeDPoint.new(1000, 0, 0))
-        #@y_axis = ThreeDLine.new(ThreeDPoint.new(0, -AXIS_END, 0), ThreeDPoint.new(0, AXIS_END, 0))
-        #@z_axis = ThreeDLine.new(ThreeDPoint.new(0, 0, -AXIS_END), ThreeDPoint.new(0, 0, AXIS_END))
+        #@x_axis = ThreeDLine.new(Point3D.new(-1000, 0, 0), Point3D.new(1000, 0, 0))
+        #@y_axis = ThreeDLine.new(Point3D.new(0, -AXIS_END, 0), Point3D.new(0, AXIS_END, 0))
+        #@z_axis = ThreeDLine.new(Point3D.new(0, 0, -AXIS_END), Point3D.new(0, 0, AXIS_END))
 
         # Our objects
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
@@ -1292,18 +1292,18 @@ class CubeRenderDisplay < Widget
 
             size_square = 1000
             dx, dz = perpendicular_direction_counter_clockwise(@dir_y, @dir_x)
-            #side_left = ThreeDPoint.new(cx + (dx * size_square), 0, cz + (dz * size_square))
+            #side_left = Point3D.new(cx + (dx * size_square), 0, cz + (dz * size_square))
             side_left = Point2D.new(cx + (dx * size_square), cz + (dz * size_square))
 
             dx, dz = perpendicular_direction_clockwise(@dir_y, @dir_x)
-            #side_right = ThreeDPoint.new(cx + (dx * size_square), 0, cz + (dz * size_square))
+            #side_right = Point3D.new(cx + (dx * size_square), 0, cz + (dz * size_square))
             side_right = Point2D.new(cx + (dx * size_square), cz + (dz * size_square))
 
             # TODO run this out to the edges of the world
             #      how to do best do that?
             #      line intersection seems non-trivial
-            #forward_left = ThreeDPoint.new(side_left.x + (@dir_y * size_square), 0, side_left.z + (@dir_x * size_square))
-            #forward_right = ThreeDPoint.new(side_right.x + (@dir_y * size_square), 0, side_right.z + (@dir_x * size_square))
+            #forward_left = Point3D.new(side_left.x + (@dir_y * size_square), 0, side_left.z + (@dir_x * size_square))
+            #forward_right = Point3D.new(side_right.x + (@dir_y * size_square), 0, side_right.z + (@dir_x * size_square))
             forward_left = Point2D.new(side_left.x + (@dir_y * size_square), side_left.y + (@dir_x * size_square))
             forward_right = Point2D.new(side_right.x + (@dir_y * size_square), side_right.y + (@dir_x * size_square))
             
@@ -1340,10 +1340,10 @@ class CubeRenderDisplay < Widget
             end 
 
             @other_objects = []
-            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[0].x, 0, vb[0].y), ThreeDPoint.new(vb[1].x, 0, vb[1].y), COLOR_RED)
-            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[1].x, 0, vb[1].y), ThreeDPoint.new(vb[2].x, 0, vb[2].y), COLOR_RED)
-            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[2].x, 0, vb[2].y), ThreeDPoint.new(vb[3].x, 0, vb[3].y), COLOR_RED)
-            @other_objects << ThreeDLine.new(ThreeDPoint.new(vb[3].x, 0, vb[3].y), ThreeDPoint.new(vb[0].x, 0, vb[0].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(Point3D.new(vb[0].x, 0, vb[0].y), Point3D.new(vb[1].x, 0, vb[1].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(Point3D.new(vb[1].x, 0, vb[1].y), Point3D.new(vb[2].x, 0, vb[2].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(Point3D.new(vb[2].x, 0, vb[2].y), Point3D.new(vb[3].x, 0, vb[3].y), COLOR_RED)
+            @other_objects << ThreeDLine.new(Point3D.new(vb[3].x, 0, vb[3].y), Point3D.new(vb[0].x, 0, vb[0].y), COLOR_RED)
         
         
         
