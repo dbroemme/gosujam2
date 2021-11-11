@@ -439,10 +439,10 @@ class CubeRenderDisplay < Widget
             end 
 
             @other_objects = []
-            @other_objects << ThreeDLine.new(Point3D.new(vb[0].x, 0, vb[0].y), Point3D.new(vb[1].x, 0, vb[1].y), COLOR_RED)
-            @other_objects << ThreeDLine.new(Point3D.new(vb[1].x, 0, vb[1].y), Point3D.new(vb[2].x, 0, vb[2].y), COLOR_RED)
-            @other_objects << ThreeDLine.new(Point3D.new(vb[2].x, 0, vb[2].y), Point3D.new(vb[3].x, 0, vb[3].y), COLOR_RED)
-            @other_objects << ThreeDLine.new(Point3D.new(vb[3].x, 0, vb[3].y), Point3D.new(vb[0].x, 0, vb[0].y), COLOR_RED)
+            @other_objects << Line3D.new(Point3D.new(vb[0].x, 0, vb[0].y), Point3D.new(vb[1].x, 0, vb[1].y), COLOR_RED)
+            @other_objects << Line3D.new(Point3D.new(vb[1].x, 0, vb[1].y), Point3D.new(vb[2].x, 0, vb[2].y), COLOR_RED)
+            @other_objects << Line3D.new(Point3D.new(vb[2].x, 0, vb[2].y), Point3D.new(vb[3].x, 0, vb[3].y), COLOR_RED)
+            @other_objects << Line3D.new(Point3D.new(vb[3].x, 0, vb[3].y), Point3D.new(vb[0].x, 0, vb[0].y), COLOR_RED)
         
         
         
