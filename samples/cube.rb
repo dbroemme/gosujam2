@@ -44,7 +44,7 @@ class CubeRenderDisplay < Widget
         @engine = Engine.new(@game_world,
                              Point3D.new(0, 150,  800), # camera
                              Point3D.new(0,   0, -300)) # center
-        @engine.load_game_world  # TODO implement this as a wrapper to game world
+        @engine.load_game_world
 
 
         @pause = false
@@ -158,13 +158,6 @@ class CubeRenderDisplay < Widget
         #end
         "" 
     end
-
-    def tile_at_proposed_grid(proposed_x, proposed_y) 
-        tile_x = @game_world.grid.determine_grid_x(proposed_x) + @game_world.grid.grid_x_offset
-        tile_y = @game_world.grid.determine_grid_y(proposed_y) + @game_world.grid.grid_y_offset
-        #puts "tile_x/y:  #{tile_x}, #{tile_y}"
-        @game_world.world_map[tile_x][tile_y]
-    end 
 
     def handle_key_held_down id, mouse_x, mouse_y
         if @continuous_movement
@@ -291,7 +284,7 @@ class CubeRenderDisplay < Widget
 
             proposed_x = @engine.center.x + movement_x
             proposed_z = @engine.center.z + movement_z
-            proposed = tile_at_proposed_grid(proposed_x, proposed_z)
+            proposed = @engine.game_world.tile_at_proposed_grid(proposed_x, proposed_z)
             if proposed == 0 
                 @engine.camera.x = @engine.camera.x - movement_x
                 @engine.center.x = proposed_x
@@ -306,7 +299,7 @@ class CubeRenderDisplay < Widget
 
             proposed_x = @engine.center.x - movement_x
             proposed_z = @engine.center.z - movement_z
-            proposed = tile_at_proposed_grid(proposed_x, proposed_z)
+            proposed = @engine.game_world.tile_at_proposed_grid(proposed_x, proposed_z)
             if proposed == 0 
                 @engine.camera.x = @engine.camera.x + movement_x
                 @engine.center.x = proposed_x

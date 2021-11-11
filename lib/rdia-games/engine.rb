@@ -107,7 +107,17 @@ module RdiaGames
 
         def add_object(obj)
             # TODO somehow this needs to call the equivalent of set tile, I think
+            # take the first model point and based on what grid it is in, put it there
         end
+
+        def tile_at_proposed_grid(proposed_x, proposed_y) 
+            tile_x = @grid.determine_grid_x(proposed_x) + @grid.grid_x_offset
+            tile_y = @grid.determine_grid_y(proposed_y) + @grid.grid_y_offset
+            #puts "tile_x/y:  #{tile_x}, #{tile_y}"
+            @world_map[tile_x][tile_y]
+        end 
+    
+    
     end 
 
     class Engine
