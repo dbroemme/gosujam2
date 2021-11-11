@@ -22,6 +22,11 @@ module RdiaGames
             @cos_cache = {}
             @sin_cache = {}
 
+            # Draw offsets so the zero centered world is centered visually on the screen
+            # This allows the initial center of the world to be 0, 0
+            @offset_x = 600
+            @offset_y = 300
+
             if camera.nil?
                 @camera = Point3D.new(0, 0, 0)
             else 
@@ -137,6 +142,25 @@ module RdiaGames
             cached
         end
 
+        # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
+        def calc_points
+            modify_all_objects do |n|
+                n.calc_points(self)
+            end
+
+            # Show the origin (pivot) point as a cube
+            #@center_cube = Cube.new($center.x, $center.z, 25, COLOR_LIGHT_BLUE)
+            #@center_cube.calc_points
+
+            # Show the directional vector as a cube
+            # initial direction vector    @dir_x = -1   @dir_y = 0   
+            dir_scale = 100
+            extended_dir_x = @direction_x * dir_scale  
+            extended_dir_y = @direction_y * dir_scale  
+            @dir_cube = Cube.new(@center.x + extended_dir_y, @center.z + extended_dir_x, 25, COLOR_PEACH)
+            @dir_cube.calc_points(self)
+        end 
+
         def calc_point(model_point)
             # XD = X(N)-PIVX
             # YD = Y(N)-PIVY
@@ -182,6 +206,13 @@ module RdiaGames
             y = (((model_point.y + y_rot_offset + @camera.y) / z) / RDIA_SCALE)
 
             Point3D.new(x, y, z) 
+        end
+
+        def render
+            Gosu.translate(@offset_x, @offset_y) do
+                render_all_objects
+                render_debug_objects
+            end 
         end
     end
 

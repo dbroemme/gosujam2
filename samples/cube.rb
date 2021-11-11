@@ -21,26 +21,11 @@ class CubeRender < RdiaGame
         register_hold_down_key(Gosu::KbQ)    
         register_hold_down_key(Gosu::KbW)    
         register_hold_down_key(Gosu::KbE)    
-        register_hold_down_key(Gosu::KbR)
-        register_hold_down_key(Gosu::KbT)
-        register_hold_down_key(Gosu::KbY)
-        register_hold_down_key(Gosu::KbU)
-        register_hold_down_key(Gosu::KbI)
-        register_hold_down_key(Gosu::KbO)
         register_hold_down_key(Gosu::KbA)
         register_hold_down_key(Gosu::KbS)
         register_hold_down_key(Gosu::KbD)
-        register_hold_down_key(Gosu::KbF)
-        register_hold_down_key(Gosu::KbG)
-        register_hold_down_key(Gosu::KbH)
-        register_hold_down_key(Gosu::KbJ)
-        register_hold_down_key(Gosu::KbK)
-        register_hold_down_key(Gosu::KbL)
         register_hold_down_key(Gosu::KbUp)
         register_hold_down_key(Gosu::KbDown)
-        register_hold_down_key(Gosu::KbM)
-        register_hold_down_key(Gosu::KbPeriod)
-
     end 
 end
 
@@ -53,11 +38,6 @@ class CubeRenderDisplay < Widget
 
         @image_external_wall = Gosu::Image.new("./media/tile5.png")
         @image_tile_18 = Gosu::Image.new("./media/tile18.png")
-
-        # Draw offsets so the zero centered world is centered visually on the screen
-        # This allows the initial center of the world to be 0, 0
-        @offset_x = 600
-        @offset_y = 300
 
         @engine = Engine.new(Point3D.new(0, 150,  800), # camera
                              Point3D.new(0,   0, -300)) # center
@@ -200,33 +180,8 @@ class CubeRenderDisplay < Widget
         end
     end 
 
-    # This uses algorithm described in https://www.skytopia.com/project/cube/cube.html
-    def calc_points
-        @engine.modify_all_objects do |n|
-            n.calc_points(@engine)
-        end
-
-        # Show the origin (pivot) point as a cube
-        #@center_cube = Cube.new($center.x, $center.z, 25, COLOR_LIGHT_BLUE)
-        #@center_cube.calc_points
-
-        # Darren Show the directional vector as a cube
-        # initial direction vector    @dir_x = -1   @dir_y = 0   
-        dir_scale = 100
-        extended_dir_x = @engine.direction_x * dir_scale  
-        extended_dir_y = @engine.direction_y * dir_scale  
-        @dir_cube = Cube.new(@engine.center.x + extended_dir_y, @engine.center.z + extended_dir_x, 25, COLOR_PEACH)
-        @dir_cube.calc_points(@engine)
-    end 
-
     def render
-        Gosu.translate(@offset_x, @offset_y) do
-            #@center_cube.render
-            #@dir_cube.render
-
-            @engine.render_all_objects
-            @engine.render_debug_objects
-        end 
+        @engine.render
     end
 
     def handle_update update_count, mouse_x, mouse_y
@@ -236,7 +191,7 @@ class CubeRenderDisplay < Widget
         end
         raycast_for_visibility
 
-        calc_points
+        @engine.calc_points
         @engine.debug_objects.each do |other_obj| 
             other_obj.calc_points(@engine)
         end
