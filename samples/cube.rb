@@ -187,7 +187,7 @@ class CubeRenderDisplay < Widget
         @engine.modify_all_objects do |n|
             n.reset_visible_side
         end
-        raycast_for_visibility
+        @engine.raycast_for_visibility(@grid, @raycast_map, GAME_WIDTH)
 
         @engine.calc_points
         @engine.debug_objects.each do |other_obj| 
@@ -318,7 +318,7 @@ class CubeRenderDisplay < Widget
         elsif id == Gosu::KbX 
             puts "------------"
             puts "Lets raycast"
-            ray_line = raycast(640) 
+            ray_line = @engine.raycast(640, @grid, @raycast_map, GAME_WIDTH) 
             puts ray_line
             slope = ray_line.slope 
             puts slope
@@ -348,49 +348,6 @@ class CubeRenderDisplay < Widget
     def visibility_polygon
         # TODO put the code back here
     end 
-
-    def raycast_for_visibility
-        (0..1279).each do |x|
-            ray_data = raycast(x) 
-            if ray_data.at_ray != 0
-                # Get the tile at this spot
-                tile = @grid.get_tile(ray_data.map_y, ray_data.map_x)
-                if tile
-                    quad = ray_data.quad_from_slope
-                    tile.set_visible_side(quad)
-                end
-            end
-        end
-    end
-
-    def raycast(x, plane_x = 0, plane_y = 0.66) 
-        #tile_x = @grid.determine_grid_x($camera.x)   # If you really see what is visible, use the camera
-        #tile_y = @grid.determine_grid_y($camera.z)
-        tile_x = @grid.determine_grid_x(@engine.center.x)
-        tile_y = @grid.determine_grid_y(@engine.center.z)
-        adj_tile_x = tile_x + @grid.grid_x_offset
-        adj_tile_y = tile_y + @grid.grid_y_offset
-        drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = @engine.ray(x, adj_tile_y, adj_tile_x, @engine.direction_x, @engine.direction_y, plane_x, plane_y, @raycast_map, GAME_WIDTH)
-        adj_map_x = mapX - @grid.grid_y_offset   # The raycast map is set the other way
-        adj_map_y = mapY - @grid.grid_x_offset
-        adj_orig_map_x = orig_map_x - @grid.grid_y_offset
-        adj_orig_map_y = orig_map_y - @grid.grid_x_offset
-
-        at_ray = @raycast_map[mapX][mapY]
-        if at_ray == 5
-            color_to_use = COLOR_AQUA
-            if side == 1
-                color_to_use = COLOR_BLUE
-            end
-        elsif at_ray == 18
-            color_to_use = COLOR_LIME
-            if side == 1
-                color_to_use = COLOR_PEACH
-            end
-        end
-        
-        RayCastData.new(x, tile_x, tile_y, adj_map_x, adj_map_y, at_ray, side, drawStart, drawEnd, color_to_use, adj_orig_map_x, adj_orig_map_y)
-    end
 
     def handle_movement id, mouse_x, mouse_y 
         if id == Gosu::KbQ
