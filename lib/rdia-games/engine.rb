@@ -286,9 +286,7 @@ module RdiaGames
                 #puts "#{mapY - 10}, #{mapX - 5}  #{sideDistY}, #{sideDistX}  hit: #{hit}  side: #{side}  orig: #{orig_map_y - 10}, #{orig_map_x - 5}"
             end
 
-            # TODO get rid of draw start and end since we are not using
-            #[drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y]
-            [0, 0, mapX, mapY, side, orig_map_x, orig_map_y]
+            [mapX, mapY, side, orig_map_x, orig_map_y]
         end
 
         def raycast(x, grid, raycast_map, game_width, plane_x = 0, plane_y = 0.66) 
@@ -298,26 +296,15 @@ module RdiaGames
             tile_y = grid.determine_grid_y(@center.z)
             adj_tile_x = tile_x + grid.grid_x_offset
             adj_tile_y = tile_y + grid.grid_y_offset
-            drawStart, drawEnd, mapX, mapY, side, orig_map_x, orig_map_y = ray(x, adj_tile_y, adj_tile_x, @direction_x, @direction_y, plane_x, plane_y, raycast_map, game_width)
+            mapX, mapY, side, orig_map_x, orig_map_y = ray(x, adj_tile_y, adj_tile_x, @direction_x, @direction_y, plane_x, plane_y, raycast_map, game_width)
             adj_map_x = mapX - grid.grid_y_offset   # The raycast map is set the other way
             adj_map_y = mapY - grid.grid_x_offset
             adj_orig_map_x = orig_map_x - grid.grid_y_offset
             adj_orig_map_y = orig_map_y - grid.grid_x_offset
     
             at_ray = raycast_map[mapX][mapY]
-            if at_ray == 5
-                color_to_use = COLOR_AQUA
-                if side == 1
-                    color_to_use = COLOR_BLUE
-                end
-            elsif at_ray == 18
-                color_to_use = COLOR_LIME
-                if side == 1
-                    color_to_use = COLOR_PEACH
-                end
-            end
             
-            RayCastData.new(x, tile_x, tile_y, adj_map_x, adj_map_y, at_ray, side, drawStart, drawEnd, color_to_use, adj_orig_map_x, adj_orig_map_y)
+            RayCastData.new(x, tile_x, tile_y, adj_map_x, adj_map_y, at_ray, side, adj_orig_map_x, adj_orig_map_y)
         end
 
         def raycast_for_visibility(grid, raycast_map, game_width)
@@ -900,13 +887,10 @@ module RdiaGames
         attr_accessor :map_y 
         attr_accessor :at_ray 
         attr_accessor :side
-        attr_accessor :draw_start  
-        attr_accessor :draw_end 
-        attr_accessor :color 
         attr_accessor :orig_map_x 
         attr_accessor :orig_map_y
 
-        def initialize(x, tile_x, tile_y, map_x, map_y, at_ray, side, draw_start, draw_end, color, orig_map_x, orig_map_y)
+        def initialize(x, tile_x, tile_y, map_x, map_y, at_ray, side, orig_map_x, orig_map_y)
             @x = x 
             @tile_x = tile_x 
             @tile_y = tile_y
@@ -914,9 +898,6 @@ module RdiaGames
             @map_y = map_y 
             @at_ray = at_ray 
             @side = side 
-            @draw_start = draw_start 
-            @draw_end = draw_end
-            @color = color
             @orig_map_x = orig_map_x 
             @orig_map_y = orig_map_y
         end
