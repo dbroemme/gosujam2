@@ -5,6 +5,7 @@ include Wads
 
 module RdiaGames
     RDIA_SCALE = 0.001
+    COLOR_WHEEL = [COLOR_BLUE, COLOR_LIGHT_BLUE, COLOR_VERY_LIGHT_BLUE, COLOR_GRAY, COLOR_LIGHT_GRAY, COLOR_LIGHTER_GRAY, COLOR_LIGHTEST_GRAY]
 
     class GameWorld
         attr_accessor :world_map
@@ -560,6 +561,14 @@ module RdiaGames
             @render_z_order = Z_ORDER_BORDER
         end 
 
+        def lighter_color(the_color)
+            a = the_color.alpha
+            r = the_color.red
+            g = the_color.red
+            b = the_color.blue 
+            Gosu::Color.rgba(r.to_f * 0.8, g.to_f * 0.8, b.to_f * 0.8, a)
+        end
+
         def reset_visible_side
             if @is_external
                 # do nothing, the visibility is static for external walls
@@ -745,6 +754,29 @@ module RdiaGames
         end
     end 
 
+    class Triangle3D < Object3D
+        attr_accessor :i
+        attr_accessor :j
+        attr_accessor :k
+    
+        def initialize(i, j, k) 
+            super()
+            if i.is_a? Point3D and j.is_a? Point3D and k.is_a? Point3D
+                @model_points << i
+                @model_points << j
+                @model_points << k
+            else 
+                raise "All parameters to construct a triangle must be Point3D: #{i.class.name}, #{j.class.name}, #{k.class.name}"
+            end
+        end
+
+        def render(z_order_to_use = nil)
+            # TODO be smarter about the color?
+            z_order_to_use = z_order_to_use.nil? ? @render_z_order : z_order_to_use
+            Gosu::draw_triangle(ra.x, ra.y, @color, rb.x, rb.y, @color, rc.x, rc.y, @color, z_order_to_use)
+        end 
+    end 
+
     class FloorTile < Object3D
         # The x, y, z coordinates are for the upper left corner
         def initialize(x, z, length = 100, color = COLOR_WHITE)
@@ -905,6 +937,106 @@ module RdiaGames
             @color = color
         end 
     end
+
+    class GraphicsObj < Object3D
+        def initialize(filename, scale = 1)
+            super()
+            @scale = scale
+            @faces = []   # triangles that this shape will draw
+            @border_color = COLOR_RED
+            load(filename)
+            #
+            # we want the faces to reference the render points
+            # so don't store them as the points but as references to the index
+            # convert to zero based since that is our index
+            #
+        end 
+    
+        def load(filename)
+            index = 1
+            non_vertices_count = 0
+            File.readlines(filename).each do |line|
+                line = line.chomp 
+                
+                skip = false
+                if line.length == 0
+                    skip = true
+                elsif line[0] == "#"
+                    skip = true 
+                end 
+                if not skip 
+                    puts "Processing object [#{index}]: #{line}"
+                    index = index + 1
+                    tokens = line.split(" ")
+                    type = tokens[0]
+                    if type == "g"
+                        @graphics_name = line[2..-1].chomp
+                        non_vertices_count = non_vertices_count + 1
+                        puts "Graphics #{@graphics_name}"
+                    elsif type == "v"
+                        point = Point3D.new(tokens[1].to_f * @scale,
+                                            tokens[2].to_f * @scale,
+                                            tokens[3].to_f * @scale)
+                        @model_points << point 
+                        puts point
+                    elsif type == "f"
+                        #triangle = Triangle.new(@objects[tokens[1].to_i],
+                        #                        @objects[tokens[2].to_i],
+                        #                        @objects[tokens[3].to_i])
+                        first_vertex = tokens[1]
+                        if first_vertex.include? "/"
+                            first_vertex = first_vertex.partition("/")[0]
+                            puts "This has a slash in the face! Using #{first_vertex}"
+                        end
+                        second_vertex = tokens[2]
+                        if second_vertex.include? "/"
+                            second_vertex = second_vertex.partition("/")[0]
+                            puts "This has a slash in the face! Using #{first_vertex}"
+                        end
+                        third_vertex = tokens[3]
+                        if third_vertex.include? "/"
+                            third_vertex = third_vertex.partition("/")[0]
+                            puts "This has a slash in the face! Using #{first_vertex}"
+                        end
+                        @faces << [first_vertex.to_i - 1 - non_vertices_count,
+                                   second_vertex.to_i - 1 - non_vertices_count,
+                                   third_vertex.to_i - 1 - non_vertices_count]
+                    else 
+                        puts "skipping for now"
+                    end
+                end
+            end
+        end
+
+        def render(z_order_to_use = nil)
+            # TODO be smarter about the color?
+            z_order_to_use = z_order_to_use.nil? ? @render_z_order : z_order_to_use
+            (0..@render_points.size-1).each do |n|
+                if n == @render_points.size - 1
+                    draw_line(@render_points, n, 0, @border_color, 20)
+                else 
+                    draw_line(@render_points, n, n + 1, @border_color, 20)
+                end 
+            end
+            count = 0
+            the_color_to_use = @color
+            #the_color_to_use = COLOR_WHEEL[count]
+            @faces.each do |face| 
+                i = @render_points[face[0]]
+                j = @render_points[face[1]]
+                k = @render_points[face[2]]
+                #puts "#{i}, #{j}, #{k}"
+                Gosu::draw_triangle(i.x, i.y, the_color_to_use, j.x, j.y, the_color_to_use, k.x, k.y, the_color_to_use, z_order_to_use)
+                #the_color_to_use = lighter_color(the_color_to_use)
+                #count = count + 1
+                #if count >= COLOR_WHEEL.length 
+                #    count = 0
+                #end
+                #the_color_to_use = COLOR_WHEEL[count]
+            end
+        end 
+    end 
+    
 
     class PointInsidePolygon
         # check if a given point lies inside a given polygon

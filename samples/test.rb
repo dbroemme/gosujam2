@@ -8,6 +8,80 @@ puts "Darren test"
 
 include RdiaGames 
 
+class Triangle
+    attr_accessor :i
+    attr_accessor :j
+    attr_accessor :k
+
+    def initialize(i, j, k) 
+        if i.is_a? Point3D and j.is_a? Point3D and k.is_a? Point3D
+            @i = i 
+            @j = j 
+            @k = k 
+        else 
+            puts "#{i.class.name}, #{j.class.name}, #{k.class.name}"
+            raise "All parameters to construct a triangle must be Point3D"
+        end
+    end
+end 
+
+class GraphicsObj
+
+    def initialize
+        @objects = []
+        @vertices = []
+        @faces = []
+    end 
+
+    def load(filename)
+        index = 1
+        File.readlines(filename).each do |line|
+            line = line.chomp 
+            
+            skip = false
+            if line.length == 0
+                skip = true
+            elsif line[0] == "#"
+                skip = true 
+            end 
+            if not skip 
+                puts "Processing object [#{index}]: #{line}"
+                index = index + 1
+                tokens = line.split(" ")
+                type = tokens[0]
+                if type == "g"
+                    @graphics_name = line[2..-1].chomp
+                    @objects << @graphics_name
+                    puts "Graphics #{@graphics_name}"
+                elsif type == "v"
+                    point = Point3D.new(tokens[1].to_f, tokens[2].to_f, tokens[3].to_f)
+                    @objects << point
+                    @vertices << point 
+                    puts point
+                elsif type == "f"
+                    triangle = Triangle.new(@objects[tokens[1].to_i],
+                                            @objects[tokens[2].to_i],
+                                            @objects[tokens[3].to_i])
+                    @faces << triangle
+                    @objects << triangle
+                else 
+                    puts "skipping for now"
+                end
+            end
+        end
+    end
+end 
+
+puts "Going to construct the pyramid object"
+pyramid = GraphicsObj.new 
+pyramid.load("/Users/broemmerd/dev/graphics/pyramid2.obj")
+#pyramid.load("/Users/broemmerd/dev/graphics/pumpkin_tall_10k.obj")
+
+
+
+
+
+
 def test_line_intersection 
     l1 = Line2D.new(Point2D.new(4, 0), Point2D.new(6, 10))
     l2 = Line2D.new(Point2D.new(0, 3), Point2D.new(10, 7))
@@ -74,4 +148,4 @@ end
             #vb = visibility_polygon
 
 
-test_line_intersection
+#test_line_intersection

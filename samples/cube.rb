@@ -53,8 +53,17 @@ class CubeRenderDisplay < Widget
 
         # Our objects
         @cube = Cube.new(-300, 300, 100, COLOR_LIME)
-        @engine.add_object(@cube)
+        #@engine.add_object(@cube)
 
+        #ta = Point3D.new(0, 0, 300)
+        #tb = Point3D.new(50, 100, 300)
+        #tc = Point3D.new(50, 0, 300)
+        #@triangle = Triangle3D.new(ta, tb, tc)
+        #@engine.add_object(@triangle)
+
+        #graphics_obj = GraphicsObj.new("/Users/broemmerd/dev/graphics/pyramid3.obj")
+        @graphics_obj = GraphicsObj.new("/Users/broemmerd/dev/graphics/blender_cube.obj", 100)
+        @engine.add_object(@graphics_obj)
 
         # Near and far walls
         x = -1000
@@ -110,6 +119,26 @@ class CubeRenderDisplay < Widget
         @engine.render
     end
 
+    def display_quad(qfs)
+        if qfs == QUAD_NW
+            return "QUAD_NW"
+        elsif qfs == QUAD_N
+            return "QUAD_N"
+        elsif qfs == QUAD_NE
+            return "QUAD_NE"
+        elsif qfs == QUAD_SW
+            return "QUAD_SW"
+        elsif qfs == QUAD_S
+            return "QUAD_S"
+        elsif qfs == QUAD_SE
+            return "QUAD_SE"
+        elsif qfs == QUAD_E
+            return "QUAD_E"
+        elsif qfs == QUAD_W
+            return "QUAD_W"
+        end
+    end 
+
     def handle_update update_count, mouse_x, mouse_y
         return if @pause
         @engine.modify_all_objects do |n|
@@ -117,6 +146,7 @@ class CubeRenderDisplay < Widget
         end
         @engine.raycast_for_visibility(GAME_WIDTH)
 
+        #puts "Graphics obj visible side: #{display_quad(@graphics_obj.visible_side)}"
         @engine.calc_points
         @engine.debug_objects.each do |other_obj| 
             other_obj.calc_points(@engine)
