@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-ruby samples/cube.rb $1 $2 $3

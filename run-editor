@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-ruby samples/tile_editor.rb $1 $2 $3
