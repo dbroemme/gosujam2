@@ -55,7 +55,8 @@ class ScrollerDisplay < Widget
         @level_text = east_panel.get_layout.add_text("#{@level}",
                                                      {ARG_TEXT_ALIGN => TEXT_ALIGN_RIGHT})
         
-        add_overlay(create_overlay_widget)
+        # TODO put this back when we are ready to release, instructions to the user
+        #add_overlay(create_overlay_widget)
 
         @tileset = Gosu::Image.load_tiles("media/basictiles.png", 16, 16, tileable: true)
         @blue_brick = @tileset[1]   # the brick with an empty pixel on the left and right, so there is a gap
@@ -220,14 +221,19 @@ class ScrollerDisplay < Widget
             index = 0
             while index < line.size
                 char = line[index..index+1].strip
-                puts "[#{index}  #{grid_x},#{grid_y} = #{char}."
+                #puts "[#{index}  #{grid_x},#{grid_y} = #{char}."
                 img = nil
 
                 # If the token is a number, use it as the tile index
                 if char.match?(/[[:digit:]]/)
                     tile_index = char.to_i
-                    puts "Using index #{tile_index}."
-                    img = BackgroundArea.new(@tileset[tile_index])
+                    #puts "Using index #{tile_index}."
+                    # This is temporary, we need a way to define and store metadata for tiles
+                    if tile_index == 5
+                        img = Wall.new(@tileset[tile_index])
+                    else
+                        img = BackgroundArea.new(@tileset[tile_index])
+                    end
                 #elsif char == "B"
                 #    img = Brick.new(@blue_brick)
                 elsif char == "W"
@@ -346,7 +352,27 @@ class Character < GameObject
             if widgets_at_proposed_spot.empty?
                 set_absolute_position(proposed_next_x, proposed_next_y)
             else 
-                debug("Can't move any further because widget(s) are there #{widgets_at_proposed_spot}")
+                # determine what interactions occur with this object
+                # List of possible interactions
+                # RDIA_REACT_BOUNCE
+                # RDIA_REACT_ONE_WAY
+                # RDIA_REACT_BOUNCE_DIAGONAL
+                # RDIA_REACT_CONSUME
+                # RDIA_REACT_GOAL
+                # RDIA_REACT_STOP
+                # RDIA_REACT_SCORE
+                # RDIA_REACT_LOSE
+                stop_motion = false
+                widgets_at_proposed_spot.each do |waps|
+                    if waps.interaction_results.include? RDIA_REACT_STOP
+                        stop_motion = true 
+                    end 
+                end 
+                if !stop_motion
+                    set_absolute_position(proposed_next_x, proposed_next_y)
+                end
+                # 
+                #    info("Can't move any further because #{widgets_at_proposed_spot.size} widget(s) are there ")
             end
         end
     end
@@ -359,7 +385,7 @@ class Wall < GameObject
     end
 
     def interaction_results
-        [RDIA_REACT_BOUNCE]
+        [RDIA_REACT_STOP]
     end
 end
 

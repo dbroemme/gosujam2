@@ -659,26 +659,25 @@ module RdiaGames
 
             other_widget = widget_at_absolute(ball.x + delta_x, ball.y + delta_y)  # Top left corner check
             if not other_widget.nil?
-                widgets << other_widget unless other_widget.no_interactions
+                widgets << other_widget
             end
             other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.y + delta_y) # Top right corner check
             if not other_widget.nil?
-                widgets << other_widget unless other_widget.no_interactions
+                widgets << other_widget
             end
             other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.bottom_edge + delta_y) # Lower right corner check
             if not other_widget.nil?
-                widgets << other_widget unless other_widget.no_interactions
+                widgets << other_widget
             end
             other_widget = widget_at_absolute(ball.x + delta_x, ball.bottom_edge + delta_y) # Lower left corner check
             if not other_widget.nil?
-                widgets << other_widget unless other_widget.no_interactions
+                widgets << other_widget
             end
             other_widget = widget_at_absolute(ball.center_x + delta_x, ball.center_y + delta_y) # Center check
             if not other_widget.nil?
-                widgets << other_widget unless other_widget.no_interactions
+                widgets << other_widget
             end
-            # TODO Make dedup more efficient
-            #info("Before Deduped there are #{widgets.size} widgets")
+
             ids = Set.new
             deduped_widgets = []
             widgets.each do |w|
