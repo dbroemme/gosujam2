@@ -298,10 +298,6 @@ module RdiaGames
             @speed = 0
         end
 
-        def inner_contains_ball(ball)
-            true
-        end
-
         def distance_between_center_mass(other_object)
             (other_object.center_x - center_x).abs + (other_object.center_y - center_y).abs
         end 
@@ -337,7 +333,6 @@ module RdiaGames
         end
 
         def overlaps_with_proposed(proposed_x, proposed_y, other_widget)
-            # Darren
             delta_x = proposed_x - @x
             delta_y = proposed_y - @y
 
@@ -420,51 +415,6 @@ module RdiaGames
             aim_x = center_x + (proposed_speed.to_f * Math.cos(aim_rad))
             aim_y = center_y - (proposed_speed.to_f * Math.sin(aim_rad))
             Point.new(aim_x, aim_y)
-        end
-    end 
-
-    class Player < GameObject 
-        attr_accessor :tile_width 
-        attr_accessor :tile_height 
-
-        def initialize(image, tile_width, tiles_height, args = {})
-            super(image)
-            @tile_width = tile_width 
-            @tile_height = tile_height
-            width = image.width * tile_width
-            height = image.height * tiles_height
-            set_dimensions(width, height)
-            disable_border
-        end
-
-        def render 
-            x = @x
-            tile_width.times do 
-                @img.draw x, @y, relative_z_order(Z_ORDER_GRAPHIC_ELEMENTS)
-                x = x + @img.width 
-            end
-        end
-
-        def move_right(grid)
-            speed_up
-            player_move(grid)
-        end
-
-        def move_left(grid)
-            speed_up
-            player_move(grid)
-        end
-
-        def player_move(grid)
-            @speed.round.times do
-                proposed_next_x, proposed_next_y = proposed_move
-                widgets_at_proposed_spot = grid.proposed_widget_at(self, proposed_next_x, proposed_next_y)
-                if widgets_at_proposed_spot.empty?
-                    set_absolute_position(proposed_next_x, proposed_next_y)
-                else 
-                    debug("Can't move any further because widget(s) are there #{widgets_at_proposed_spot}")
-                end
-            end
         end
     end 
 
@@ -633,8 +583,8 @@ module RdiaGames
         # Returns nil if there is no widget at the given pixel position
         # or if it this pixel is occupied, return the widget at that position
         def widget_at_relative(x, y)
-            x_index = x / @tile_size
-            y_index = y / @tile_size
+            x_index = (x / @tile_size).floor
+            y_index = (y / @tile_size).floor
             if x_index > @grid_width
                 error("Asking for relative widget beyond width: #{x}")
                 return nil 
@@ -649,7 +599,8 @@ module RdiaGames
         def tile_at_absolute(x, y)
             x_index = x / @tile_size
             y_index = y / @tile_size
-            [x_index.round, y_index.round, x_index.round * @tile_size, y_index.round * @tile_size]
+            puts "tile_at_absolute: #{x_index}, #{y_index}"
+            [x_index.floor, y_index.floor, x_index.floor * @tile_size, y_index.floor * @tile_size]
         end
 
         def proposed_widget_at(ball, proposed_next_x, proposed_next_y)
@@ -657,19 +608,21 @@ module RdiaGames
             delta_x = proposed_next_x - ball.x
             delta_y = proposed_next_y - ball.y
 
+            # TEMP fix because the scale is 2, so the right_edge and bottom_edge are only half of the actual pixel lengths
+            # Refactor this so the scale is taken into account in a nicer way
             other_widget = widget_at_absolute(ball.x + delta_x, ball.y + delta_y)  # Top left corner check
             if not other_widget.nil?
                 widgets << other_widget
             end
-            other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.y + delta_y) # Top right corner check
+            other_widget = widget_at_absolute(ball.right_edge + ball.width + delta_x, ball.y + delta_y) # Top right corner check
             if not other_widget.nil?
                 widgets << other_widget
             end
-            other_widget = widget_at_absolute(ball.right_edge + delta_x, ball.bottom_edge + delta_y) # Lower right corner check
+            other_widget = widget_at_absolute(ball.right_edge + ball.width + delta_x, ball.bottom_edge + ball.height + delta_y) # Lower right corner check
             if not other_widget.nil?
                 widgets << other_widget
             end
-            other_widget = widget_at_absolute(ball.x + delta_x, ball.bottom_edge + delta_y) # Lower left corner check
+            other_widget = widget_at_absolute(ball.x + delta_x, ball.bottom_edge + ball.height + delta_y) # Lower left corner check
             if not other_widget.nil?
                 widgets << other_widget
             end
@@ -685,9 +638,7 @@ module RdiaGames
                     # skip
                 else 
                     ids.add(w.object_id)
-                    if w.inner_contains_ball(ball)
-                        deduped_widgets << w 
-                    end
+                    deduped_widgets << w
                 end 
             end
             #info("Deduped there are #{deduped_widgets.size} widgets")
